@@ -100,48 +100,68 @@ const handleLogin = async () => {
 
   try {
     loading.value = true;
-    const result = await userApi.login(
-      form.username,
-      form.password
-    );
 
-    // 保存 API Key
-    request.setApiKey(result.Key);
+    // 判断输入的是邮箱还是账号
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.username);
+    let res;
 
-    // 获取用户信息
-    const userInfo = await userApi.getCurrentUser();
-
-    // 保存用户信息
-    utools.dbStorage.setItem("fishpi_user_info", userInfo.data);
-
-    // 保存账号到账号列表
-    const accounts = utools.dbStorage.getItem("fishpi_accounts") || [];
-    const existingAccountIndex = accounts.findIndex(
-      (account) => account.userName === userInfo.data.userName
-    );
-
-    if (existingAccountIndex === -1) {
-      // 新账号，添加到列表
-      accounts.push({
-        ...userInfo.data,
-        apiKey: result.Key,
-      });
+    if (isEmail) {
+      // 邮箱登录
+      res = await userApi.userEmailLogin(form.username, form.password);
     } else {
-      // 更新现有账号信息
-      accounts[existingAccountIndex] = {
-        ...userInfo.data,
-        apiKey: result.Key,
-      };
+      // 账号登录
+      res = await userApi.userLogin(form.username, form.password);
     }
-    utools.dbStorage.setItem("fishpi_accounts", accounts);
 
-    // 显示成功提示
-    utools.showNotification("登录成功");
+    // 检查响应
+    if (res.code === 0 && res.data) {
+      const loginData = res.data;
 
-    // 触发登录成功事件
-    window.dispatchEvent(new CustomEvent("fishpi:login-success"));
+      // 保存 token 信息
+      if (loginData.saTokenInfo) {
+        // 使用 request 的 setToken 方法保存 token
+        request.setToken(
+          loginData.saTokenInfo.tokenName,
+          loginData.saTokenInfo.tokenValue
+        );
+      }
+
+      // 保存用户信息
+      utools.dbStorage.setItem("fishpi_user_info", loginData);
+
+      // 保存账号到账号列表
+      const accounts = utools.dbStorage.getItem("fishpi_accounts") || [];
+      const existingAccountIndex = accounts.findIndex(
+        (account) => account.userName === loginData.userName
+      );
+
+      if (existingAccountIndex === -1) {
+        // 新账号，添加到列表
+        accounts.push({
+          ...loginData,
+          tokenName: loginData.saTokenInfo?.tokenName,
+          tokenValue: loginData.saTokenInfo?.tokenValue,
+        });
+      } else {
+        // 更新现有账号信息
+        accounts[existingAccountIndex] = {
+          ...loginData,
+          tokenName: loginData.saTokenInfo?.tokenName,
+          tokenValue: loginData.saTokenInfo?.tokenValue,
+        };
+      }
+      utools.dbStorage.setItem("fishpi_accounts", accounts);
+
+      // 显示成功提示
+      utools.showNotification("登录成功");
+
+      // 触发登录成功事件
+      window.dispatchEvent(new CustomEvent("fishpi:login-success"));
+    } else {
+      utools.showNotification(res.message || "登录失败");
+    }
   } catch (error) {
-    if (error.message.includes("两步验证")) {
+    if (error.message && error.message.includes("两步验证")) {
       showMfa.value = true;
     } else {
       utools.showNotification(error.message || "登录失败");

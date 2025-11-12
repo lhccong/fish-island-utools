@@ -16,20 +16,31 @@ export const useUserStore = defineStore("user", {
       return now - state.lastFetchTime > 120000; // 2分钟缓存
     },
     isLoggedIn: (state) => {
-      return !!state.userInfo && !!request.getApiKey();
+      // 检查新的 token 或旧的 apiKey
+      const hasToken = !!request.getTokenName() && !!request.getTokenValue();
+      const hasApiKey = !!request.getApiKey();
+      return !!state.userInfo && (hasToken || hasApiKey);
     },
-    userAvatarURL: (state) => state.userInfo?.userAvatarURL || "",
+    // 新 API 字段
+    userAvatarURL: (state) => state.userInfo?.userAvatar || "",
     userName: (state) => state.userInfo?.userName || "",
-    userNickname: (state) => state.userInfo?.userNickname || "",
+    userRole: (state) => state.userInfo?.userRole || "",
+    userPoint: (state) => state.userInfo?.points || 0, // 新API: points
+    userIntro: (state) => state.userInfo?.userProfile || "", // 新API: userProfile
+    userId: (state) => state.userInfo?.id || 0,
+    userEmail: (state) => state.userInfo?.email || "",
+    userLevel: (state) => state.userInfo?.level || 0,
+    usedPoints: (state) => state.userInfo?.usedPoints || 0,
+    isVip: (state) => state.userInfo?.vip || false,
+    avatarFramerUrl: (state) => state.userInfo?.avatarFramerUrl || "",
+    // 兼容旧字段（如果其他地方还在使用）
+    userNickname: (state) => state.userInfo?.userNickname || state.userInfo?.userName || "",
     userOnlineFlag: (state) => state.userInfo?.userOnlineFlag || false,
     userOnlineMinute: (state) => {
       console.log("当前用户信息:", state.userInfo);
       return state.userInfo?.onlineMinute || 0;
     },
-    userRole: (state) => state.userInfo?.userRole || "",
     userNo: (state) => state.userInfo?.userNo || "",
-    userPoint: (state) => state.userInfo?.userPoint || 0,
-    userIntro: (state) => state.userInfo?.userIntro || "",
     followingUserCount: (state) => state.userInfo?.followingUserCount || 0,
     followerCount: (state) => state.userInfo?.followerCount || 0,
   },
@@ -100,14 +111,16 @@ export const useUserStore = defineStore("user", {
     async init() {
       // 先从本地存储获取
       const storedUserInfo = utools.dbStorage.getItem("fishpi_user_info");
-      const apiKey = request.getApiKey();
+      // 检查新的 token 或旧的 apiKey
+      const hasToken = !!request.getTokenName() && !!request.getTokenValue();
+      const hasApiKey = !!request.getApiKey();
 
-      if (storedUserInfo && apiKey) {
+      if (storedUserInfo && (hasToken || hasApiKey)) {
         this.userInfo = storedUserInfo;
         this.lastFetchTime = Date.now();
         this.startChecking();
       } else {
-        // 如果没有用户信息或 API Key，清除状态
+        // 如果没有用户信息或认证信息，清除状态
         this.logout();
       }
     },
@@ -116,6 +129,8 @@ export const useUserStore = defineStore("user", {
       this.userInfo = null;
       this.lastFetchTime = 0;
       this.stopChecking();
+      // 清除 token 和 apiKey
+      request.clearToken();
       request.clearApiKey();
       utools.dbStorage.removeItem("fishpi_user_info");
     },
@@ -146,30 +161,62 @@ export const useUserStore = defineStore("user", {
 
     // 设置用户信息（用于切换账号）
     setUserInfo(userInfo) {
-      if (!userInfo || !userInfo.apiKey) {
-        console.error("设置用户信息失败：缺少必要信息");
+      // 检查是否有 token 或 apiKey
+      const hasToken = userInfo.saTokenInfo?.tokenName && userInfo.saTokenInfo?.tokenValue;
+      const hasTokenValue = userInfo.tokenValue;
+      const hasApiKey = userInfo.apiKey;
+      
+      if (!userInfo || (!hasToken && !hasTokenValue && !hasApiKey)) {
+        console.error("设置用户信息失败：缺少认证信息");
         return;
       }
 
       // 先清除当前状态
       this.stopChecking();
 
-      // 设置新的 API Key
-      request.setApiKey(userInfo.apiKey);
+      // 设置认证信息（优先使用 token）
+      if (hasToken) {
+        request.setToken(userInfo.saTokenInfo.tokenName, userInfo.saTokenInfo.tokenValue);
+      } else if (hasTokenValue) {
+        // 如果有 tokenValue（从账号列表获取）
+        const tokenName = userInfo.tokenName || "fish-dog-token";
+        request.setToken(tokenName, userInfo.tokenValue);
+      } else if (hasApiKey) {
+        request.setApiKey(userInfo.apiKey);
+      }
 
       // 更新用户信息，只保留需要的数据
       const cleanUserInfo = {
+        // 新 API 字段
+        id: userInfo.id,
         userName: userInfo.userName,
+        userAvatar: userInfo.userAvatar,
+        userRole: userInfo.userRole,
+        userProfile: userInfo.userProfile,
+        email: userInfo.email,
+        points: userInfo.points,
+        usedPoints: userInfo.usedPoints,
+        level: userInfo.level,
+        vip: userInfo.vip,
+        avatarFramerUrl: userInfo.avatarFramerUrl,
+        bindPlatforms: userInfo.bindPlatforms,
+        createTime: userInfo.createTime,
+        updateTime: userInfo.updateTime,
+        lastSignInDate: userInfo.lastSignInDate,
+        titleId: userInfo.titleId,
+        titleIdList: userInfo.titleIdList,
+        // 兼容旧字段（如果账号列表中还有旧数据）
         userNickname: userInfo.userNickname,
-        userAvatarURL: userInfo.userAvatarURL,
         userOnlineFlag: userInfo.userOnlineFlag,
         onlineMinute: userInfo.onlineMinute || 0,
-        userRole: userInfo.userRole,
         userNo: userInfo.userNo,
-        userPoint: userInfo.userPoint,
-        userIntro: userInfo.userIntro,
+        userPoint: userInfo.userPoint || userInfo.points, // 兼容旧字段
+        userIntro: userInfo.userIntro || userInfo.userProfile, // 兼容旧字段
         followingUserCount: userInfo.followingUserCount,
         followerCount: userInfo.followerCount,
+        // 认证信息
+        tokenName: userInfo.tokenName || userInfo.saTokenInfo?.tokenName,
+        tokenValue: userInfo.tokenValue || userInfo.saTokenInfo?.tokenValue,
         apiKey: userInfo.apiKey,
       };
 

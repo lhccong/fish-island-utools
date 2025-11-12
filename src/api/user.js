@@ -1,12 +1,28 @@
 import { request } from "./request";
 
 export const userApi = {
-  // 登录
+  // 登录（旧接口，保留兼容）
   login(nameOrEmail, userPassword, mfaCode) {
     return request.post("/api/getKey", {
       nameOrEmail,
       userPassword,
       mfaCode,
+    });
+  },
+
+  // 用户账号登录
+  userLogin(userAccount, userPassword) {
+    return request.post("/api/user/login", {
+      userAccount,
+      userPassword,
+    });
+  },
+
+  // 用户邮箱登录
+  userEmailLogin(email, userPassword) {
+    return request.post("/api/user/email/login", {
+      email,
+      userPassword,
     });
   },
 
@@ -25,9 +41,35 @@ export const userApi = {
     return request.post("/register2", { data, inviteUser });
   },
 
-  // 获取当前用户信息
-  getCurrentUser() {
-    return request.get("/api/user");
+  /**
+   * 获取当前登录用户信息
+   * @param {Object} [options] - 请求配置选项
+   * @returns {Promise<{
+   *   code?: number;
+   *   data?: {
+   *     avatarFramerUrl?: string;
+   *     bindPlatforms?: Array<any>;
+   *     createTime?: string;
+   *     email?: string;
+   *     id?: number;
+   *     lastSignInDate?: string;
+   *     level?: number;
+   *     points?: number;
+   *     titleId?: number;
+   *     titleIdList?: string;
+   *     updateTime?: string;
+   *     usedPoints?: number;
+   *     userAvatar?: string;
+   *     userName?: string;
+   *     userProfile?: string;
+   *     userRole?: string;
+   *     vip?: boolean;
+   *   };
+   *   message?: string;
+   * }>}
+   */
+  async getCurrentUser(options) {
+    return request.get("/api/user/get/login", options || {});
   },
   // 获取用户资料
   getUserProfile(username) {

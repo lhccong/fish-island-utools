@@ -25,12 +25,17 @@ onMounted(() => {
 
 // 检查登录状态
 const checkLoginStatus = () => {
+  // 优先检查新的 token 认证
+  const tokenName = request.getTokenName();
+  const tokenValue = request.getTokenValue();
+  // 回退检查旧的 apiKey（兼容性）
   const apiKey = request.getApiKey();
-  const userInfo = utools.dbStorage.getItem("fishpi_user_info");
+  const userInfoData = utools.dbStorage.getItem("fishpi_user_info");
 
-  if (apiKey && userInfo) {
+  // 如果有 token 或 apiKey，且有用户信息，则认为已登录
+  if ((tokenName && tokenValue || apiKey) && userInfoData) {
     isLoggedIn.value = true;
-    userInfo.value = userInfo;
+    userInfo.value = userInfoData;
 
     // 获取默认页面设置
     const settings = utools.dbStorage.getItem("fishpi_settings") || {};

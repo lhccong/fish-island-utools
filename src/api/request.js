@@ -9,29 +9,39 @@ class Request {
     // 请求拦截器
     this.instance.interceptors.request.use(
       (config) => {
-        const apiKey = this.getApiKey();
-        if (apiKey) {
-          // 检查是否是文件上传请求
-          const isFileUpload =
-            config.headers["Content-Type"] === "multipart/form-data";
+        // 优先使用新的 token 认证方式
+        const tokenName = this.getTokenName();
+        const tokenValue = this.getTokenValue();
+        
+        if (tokenName && tokenValue) {
+          // 使用新的 token 认证，添加到请求头
+          config.headers[tokenName] = tokenValue;
+        } else {
+          // 回退到旧的 apiKey 方式（保持兼容性）
+          const apiKey = this.getApiKey();
+          if (apiKey) {
+            // 检查是否是文件上传请求
+            const isFileUpload =
+              config.headers["Content-Type"] === "multipart/form-data";
 
-          if (isFileUpload) {
-            // 文件上传请求，将apiKey添加到URL参数中
-            config.url = `${config.url}${
-              config.url.includes("?") ? "&" : "?"
-            }apiKey=${apiKey}`;
-          } else if (config.method === "get") {
-            // GET 请求将 apiKey 添加到 URL 参数中
-            config.params = {
-              ...config.params,
-              apiKey: apiKey,
-            };
-          } else {
-            // 其他 POST 请求将 apiKey 添加到请求体中
-            config.data = {
-              ...config.data,
-              apiKey: apiKey,
-            };
+            if (isFileUpload) {
+              // 文件上传请求，将apiKey添加到URL参数中
+              config.url = `${config.url}${
+                config.url.includes("?") ? "&" : "?"
+              }apiKey=${apiKey}`;
+            } else if (config.method === "get") {
+              // GET 请求将 apiKey 添加到 URL 参数中
+              config.params = {
+                ...config.params,
+                apiKey: apiKey,
+              };
+            } else {
+              // 其他 POST 请求将 apiKey 添加到请求体中
+              config.data = {
+                ...config.data,
+                apiKey: apiKey,
+              };
+            }
           }
         }
         return config;
@@ -47,10 +57,12 @@ class Request {
         const res = response.data;
         console.log("API响应:", res);
 
-        // 处理 API Key 无效或过期的情况
-        if (res.code === -1) {
-          if (res.msg === "Invalid API Key" || res.msg.includes("API Key")) {
+        // 处理认证失败的情况（token 或 API Key 无效）
+        if (res.code === -1 || res.code === 401) {
+          if (res.msg === "Invalid API Key" || res.msg.includes("API Key") || 
+              res.msg.includes("未登录") || res.msg.includes("token")) {
             this.clearApiKey();
+            this.clearToken();
             // 触发登录失效事件
             window.dispatchEvent(new CustomEvent("fishpi:login-invalid"));
           }
@@ -76,17 +88,39 @@ class Request {
     );
   }
 
-  // 获取 API Key
+  // 获取 Token Name
+  getTokenName() {
+    return utools.dbStorage.getItem("tokenName");
+  }
+
+  // 获取 Token Value
+  getTokenValue() {
+    return utools.dbStorage.getItem("tokenValue");
+  }
+
+  // 设置 Token
+  setToken(tokenName, tokenValue) {
+    utools.dbStorage.setItem("tokenName", tokenName);
+    utools.dbStorage.setItem("tokenValue", tokenValue);
+  }
+
+  // 清除 Token
+  clearToken() {
+    utools.dbStorage.removeItem("tokenName");
+    utools.dbStorage.removeItem("tokenValue");
+  }
+
+  // 获取 API Key（保持兼容性）
   getApiKey() {
     return utools.dbStorage.getItem("fishpi_api_key");
   }
 
-  // 设置 API Key
+  // 设置 API Key（保持兼容性）
   setApiKey(apiKey) {
     utools.dbStorage.setItem("fishpi_api_key", apiKey);
   }
 
-  // 清除 API Key
+  // 清除 API Key（保持兼容性）
   clearApiKey() {
     utools.dbStorage.removeItem("fishpi_api_key");
   }

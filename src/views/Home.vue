@@ -35,13 +35,19 @@
       </nav>
       <div class="user-info-container">
         <div class="user-info-details">
+          <!-- VIP 标识展示 -->
+          <div class="user-vip-badge" v-if="userStore.isVip">
+            <div class="vip-badge">
+              <i class="fas fa-crown"></i>
+            </div>
+          </div>
           <div
             class="user-avatar"
             @click="showUserProfile"
             @mouseenter="showUserCard = true"
             @mouseleave="showUserCard = false"
           >
-            <img :src="userStore.userInfo?.userAvatarURL" alt="用户头像" />
+            <img :src="userStore.userAvatarURL" alt="用户头像" />
           </div>
           <div
             v-if="showUserCard"
@@ -49,23 +55,13 @@
             @mouseenter="showUserCard = true"
             @mouseleave="showUserCard = false"
           >
-            <div class="user-card-item" @click.stop="showSwitchAccount">
+            <!-- <div class="user-card-item" @click.stop="showSwitchAccount">
               <i class="fas fa-exchange-alt"></i>
               <span>切换账号</span>
-            </div>
+            </div> -->
             <div class="user-card-item" @click.stop="logout">
               <i class="fas fa-sign-out-alt"></i>
               <span>退出登录</span>
-            </div>
-          </div>
-          <!-- 活跃度展示 -->
-          <div class="collapsed-liveness" @click="refreshLiveness">
-            <div
-              class="liveness-info"
-              :class="{ signed: livenessStore.liveness >= 10 }"
-            >
-              <i class="fas fa-fire"></i>
-              <span>{{ livenessStore.liveness || 0 }}</span>
             </div>
           </div>
         </div>
@@ -161,20 +157,14 @@ const savedAccounts = ref([]);
 
 const navItems = [
   { path: "/", name: "鱼塘首页", icon: "fas fa-house" },
-  { path: "/chatroom", name: "鱼塘聊天", icon: "fas fa-comments" },
-  { path: "/private-chat", name: "康康私信", icon: "fas fa-envelope" },
-  { path: "/posts", name: "康康帖子", icon: "fas fa-book-reader" },
-  { path: "/moon", name: "清风明月", icon: "fas fa-moon" },
-  { path: "/games", name: "鱼排游戏", icon: "fas fa-gamepad" },
-  { path: "/notifications", name: "消息通知", icon: "fas fa-bell" },
+  // { path: "/chatroom", name: "鱼塘聊天", icon: "fas fa-comments" },
+  // { path: "/private-chat", name: "康康私信", icon: "fas fa-envelope" },
+  // { path: "/posts", name: "康康帖子", icon: "fas fa-book-reader" },
+  // { path: "/moon", name: "清风明月", icon: "fas fa-moon" },
+  // { path: "/games", name: "鱼排游戏", icon: "fas fa-gamepad" },
+  // { path: "/notifications", name: "消息通知", icon: "fas fa-bell" },
   { path: "/settings", name: "系统设置", icon: "fas fa-cog" },
 ];
-
-
-// 刷新活跃度
-const refreshLiveness = () => {
-  livenessStore.fetchLiveness();
-};
 
 // 处理私信消息
 const handleMessage = (data) => {
@@ -342,7 +332,7 @@ const navigateTo = (route) => {
 
 const logout = () => {
   userStore.logout();
-  request.clearApiKey();
+  // userStore.logout() 已经会清除 token 和 apiKey
   router.push("/login");
 };
 
@@ -584,23 +574,22 @@ const goToLogin = () => {
   transform: translate(50%, -50%);
 }
 
-.collapsed-liveness {
+.user-vip-badge {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  margin-top: 4px;
-  font-size: 12px;
+  margin-bottom: 4px;
 }
 
-.collapsed-liveness .liveness-info {
+.user-vip-badge .vip-badge {
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: var(--point-color, #ff4d4f);
+  justify-content: center;
 }
 
-.collapsed-liveness .liveness-info.signed {
-  color: var(--signed-color, #52c41a);
+.user-vip-badge .vip-badge i {
+  color: #ffd700;
+  font-size: 16px;
 }
 
 .tooltip {
