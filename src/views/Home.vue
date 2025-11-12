@@ -136,7 +136,7 @@ import { request } from "../api";
 import { useUserStore } from "../stores/user";
 import { useNotificationStore } from "../stores/notification";
 import { useLivenessStore } from "../stores/liveness";
-import wsManager from "../utils/websocket";
+import wsManager, { BACKEND_HOST_WS } from "../utils/websocket";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { chatApi } from "../api/chat";
 import * as lottie from "lottie-web";
@@ -158,7 +158,7 @@ const savedAccounts = ref([]);
 const navItems = [
   { path: "/", name: "鱼塘首页", icon: "fas fa-house" },
   { path: "/hot-posts", name: "帖子热榜", icon: "fas fa-fire" },
-  // { path: "/chatroom", name: "鱼塘聊天", icon: "fas fa-comments" },
+  { path: "/chatroom", name: "摸鱼室", icon: "fas fa-comments" },
   // { path: "/private-chat", name: "康康私信", icon: "fas fa-envelope" },
   // { path: "/posts", name: "康康帖子", icon: "fas fa-book-reader" },
   // { path: "/moon", name: "清风明月", icon: "fas fa-moon" },
@@ -310,7 +310,7 @@ onMounted(async () => {
 
   // 连接通知 WebSocket
   try {
-    await wsManager.connect("wss://fishpi.cn/user-channel", {
+    await wsManager.connect(BACKEND_HOST_WS, {
       connectionId: "home-channel",
     });
     wsManager.on("message", handleMessage, "home-channel");
@@ -397,7 +397,7 @@ const switchToAccount = (account) => {
 
     // 重新连接 WebSocket
     wsManager
-      .connect("wss://fishpi.cn/user-channel", {
+      .connect(BACKEND_HOST_WS, {
         connectionId: "home-channel",
       })
       .then(() => {

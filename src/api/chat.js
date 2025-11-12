@@ -66,4 +66,9 @@ export const chatApi = {
   markAsRead(fromUser) {
     return request.get("/chat/mark-as-read", { fromUser });
   },
+
+  // 获取在线用户列表
+  getOnlineUserListUsingGet(options = {}) {
+    return request.get("/api/chat/online/user", options);
+  },
 };

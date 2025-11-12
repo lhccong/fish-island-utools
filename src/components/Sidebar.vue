@@ -17,8 +17,13 @@
       </div>
       <ul v-else class="online-users-list">
         <li v-for="user in onlineUsers" :key="user.userName" class="user-item" @click="showUserProfile(user.userName)">
-          <img :src="user.userAvatarURL48" :alt="user.userName" class="user-avatar" />
-          <span class="user-name">{{ user.userName }}</span>
+          <img 
+            :src="getAvatarUrl(user)" 
+            :alt="user.userName" 
+            class="user-avatar" 
+            @error="handleAvatarError"
+          />
+          <span class="user-name" :title="user.userName">{{ truncateName(user.userName) }}</span>
         </li>
       </ul>
     </div>
@@ -102,6 +107,48 @@
       const formattedTopic = `*\`# ${props.currentTopic} #\`*`;
       emit("topic-click", formattedTopic);
     }
+  };
+
+  // 获取头像 URL，优先使用 userAvatarURL48，如果没有则使用 avatar
+  const getAvatarUrl = (user) => {
+    const avatarUrl = user.userAvatarURL48 || user.avatar || user.userAvatarURL || '';
+    // 确保返回有效的 URL
+    if (!avatarUrl) return '';
+    // 如果已经是完整 URL，直接返回
+    if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://') || avatarUrl.startsWith('data:')) {
+      return avatarUrl;
+    }
+    // 如果是相对路径，尝试添加基础 URL
+    if (avatarUrl.startsWith('/')) {
+      // 这里可以根据实际情况调整，如果 API 返回的是相对路径
+      return avatarUrl;
+    }
+    return avatarUrl;
+  };
+
+  // 处理头像加载错误
+  const handleAvatarError = (event) => {
+    // 设置默认头像（灰色圆形占位符）
+    const defaultAvatar = 'data:image/svg+xml;base64,' + btoa(`
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="14" fill="#E0E0E0"/>
+        <circle cx="14" cy="11" r="4" fill="#999999"/>
+        <path d="M6 22C6 18 9 15 14 15C19 15 22 18 22 22" fill="#999999"/>
+      </svg>
+    `);
+    event.target.src = defaultAvatar;
+    event.target.onerror = null; // 防止无限循环
+  };
+
+  // 截断用户名，限制显示长度
+  const truncateName = (name) => {
+    if (!name) return '';
+    // 限制最大显示长度为 8 个字符（中文字符算 1 个）
+    const maxLength = 8;
+    if (name.length <= maxLength) {
+      return name;
+    }
+    return name.substring(0, maxLength) + '...';
   };
 </script>
 
@@ -193,10 +240,12 @@
     display: flex;
     align-items: center;
     margin-bottom: 8px;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-color);
     cursor: pointer;
-    transition: color 0.2s ease;
+    transition: all 0.2s ease;
+    padding: 2px 0;
+    min-width: 0; /* 允许 flex 子元素收缩 */
   }
 
   .user-item:last-child {
@@ -205,22 +254,31 @@
 
   .user-item:hover {
     color: var(--primary-color);
+    background-color: var(--hover-bg);
+    border-radius: 4px;
+    padding-left: 4px;
+    padding-right: 4px;
   }
 
   .user-avatar {
     width: 28px;
     height: 28px;
+    min-width: 28px; /* 防止头像被压缩 */
     border-radius: 50%;
-    margin-right: 10px;
+    margin-right: 8px;
     flex-shrink: 0;
     border: 1px solid var(--border-color);
+    object-fit: cover; /* 确保图片正确填充 */
+    background-color: var(--hover-bg); /* 默认背景色 */
   }
 
   .user-name {
-    flex-grow: 1;
+    flex: 1;
+    min-width: 0; /* 允许文本截断 */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 100%;
   }
 
   .placeholder-section h4 {

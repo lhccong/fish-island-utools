@@ -30,9 +30,9 @@
       <!-- 红包图标 -->
       <i class="fas fa-gift icon" @click="openRedPacketDialog" title="红包"></i>
       <!-- 弹幕图标 -->
-      <i class="fas fa-comment-dots icon" @click="openDanmakuDialog" title="弹幕"></i>
+<!--      <i class="fas fa-comment-dots icon" @click="openDanmakuDialog" title="弹幕"></i>-->
       <!-- 小尾巴图标 -->
-      <i class="fas fa-pen-fancy icon" @click="openSignatureDialog" title="小尾巴"></i>
+<!--      <i class="fas fa-pen-fancy icon" @click="openSignatureDialog" title="小尾巴"></i>-->
       <!-- 关键词图标 -->
 
       <i class="fas fa-bell icon" @click="openBellDialog" title="关键词提醒"></i>

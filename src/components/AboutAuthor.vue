@@ -12,7 +12,7 @@
           <div class="author-info">
             <h4>
               <span class="cursor-link" @click="openExternalLink(LINKS.AUTHOR)"
-                >马达</span
+                >聪</span
               >
             </h4>
             <p>热爱编程的摸鱼达人 | 开源爱好者</p>
@@ -27,7 +27,7 @@
             >
               摸鱼岛 </span
             >社区插件，基于开放 API
-            开发，让您可以更方便地访问和使用摸鱼岛社区的功能。
+            开发，让您可以更方便地访问和使用摸鱼岛社区的功能（参考摸鱼派 马达 大佬开发的开源插件）。
           </p>
           <p class="info-text">
             如果你觉得这个插件还不错，欢迎给个好评和评论，您的支持是我持续改进的最大动力！
@@ -80,11 +80,11 @@ const openExternalLink = (url) => {
 };
 
 const LINKS = {
-  GITHUB: "https://github.com/FishPiOffical/fishpi-uTools",
-  ISSUES: "https://github.com/FishPiOffical/fishpi-uTools/issues",
+  GITHUB: "https://github.com/lhccong/fish-island-utools",
+  ISSUES: "https://github.com/lhccong/fish-island-utools/issues",
   CURSOR: "https://www.cursor.com",
   FISHPI: "https://yucoder.cn/",
-  AUTHOR: "https://yucoder.cn/member/otis1026",
+  AUTHOR: "https://github.com/lhccong",
 };
 </script>
 

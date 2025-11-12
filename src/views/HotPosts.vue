@@ -44,11 +44,8 @@
                   class="category-icon"
                 />
                 <div class="category-details">
-                  <h3 class="category-name">{{ category.name }}</h3>
-                  <div class="category-meta">
-                    <span v-if="category.typeName" class="category-type">{{
-                      category.typeName
-                    }}</span>
+                  <div class="category-title-row">
+                    <h3 class="category-name">{{ category.name }}</h3>
                     <span v-if="category.updateTime" class="category-update">
                       {{ formatTime(category.updateTime) }}
                     </span>
@@ -119,12 +116,30 @@ const formatTime = (timeStr) => {
   if (!timeStr) return "";
   try {
     const date = new Date(timeStr);
-    return date.toLocaleString("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const now = new Date();
+    const diff = now - date; // 时间差（毫秒）
+    
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (minutes < 1) {
+      return "刚刚更新";
+    } else if (minutes < 60) {
+      return `${minutes}分钟前更新`;
+    } else if (hours < 24) {
+      return `${hours}小时前更新`;
+    } else if (days < 7) {
+      return `${days}天前更新`;
+    } else {
+      // 超过7天显示具体日期
+      return date.toLocaleString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
   } catch {
     return timeStr;
   }
@@ -267,19 +282,26 @@ onMounted(() => {
   flex: 1;
 }
 
+.category-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .category-name {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-color, #333);
+  flex: 1;
 }
 
-.category-meta {
-  display: flex;
-  gap: 6px;
+.category-update {
   font-size: 10px;
   color: var(--sub-text-color, #999);
-  margin-top: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .category-type {

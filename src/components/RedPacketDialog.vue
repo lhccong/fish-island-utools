@@ -47,7 +47,7 @@
               v-model="form.money"
               :min="1"
               :max="999999999"
-              :default-value="32"
+              :default-value="100"
               controls-position="right"
             />
           </div>
@@ -67,9 +67,9 @@
             <span class="item-label">个数</span>
             <el-input-number
               v-model="form.count"
-              :min="form.type === 'heartbeat' ? 5 : 1"
+              :min="form.type === 'heartbeat' ? 10 : 1"
               :max="9999999"
-              :default-value="form.type === 'heartbeat' ? 5 : 2"
+              :default-value="form.type === 'heartbeat' ? 10 : 2"
               controls-position="right"
               :disabled="form.type === 'specify'"
             />
@@ -165,27 +165,27 @@ const redPacketTypes = [
     desc: "平分红包，人人有份！",
     defaultMsg: "平分红包，人人有份！",
   },
-  {
-    name: "专属红包",
-    value: "specify",
-    icon: "el-icon-user",
-    desc: "试试看，这是给你的红包吗？",
-    defaultMsg: "试试看，这是给你的红包吗？",
-  },
-  {
-    name: "心跳红包",
-    value: "heartbeat",
-    icon: "el-icon-heart",
-    desc: "玩的就是心跳！",
-    defaultMsg: "玩的就是心跳！",
-  },
-  {
-    name: "猜拳红包",
-    value: "rockPaperScissors",
-    icon: "el-icon-scissors",
-    desc: "石头剪刀布！",
-    defaultMsg: "石头剪刀布！",
-  },
+  // {
+  //   name: "专属红包",
+  //   value: "specify",
+  //   icon: "el-icon-user",
+  //   desc: "试试看，这是给你的红包吗？",
+  //   defaultMsg: "试试看，这是给你的红包吗？",
+  // },
+  // {
+  //   name: "心跳红包",
+  //   value: "heartbeat",
+  //   icon: "el-icon-heart",
+  //   desc: "玩的就是心跳！",
+  //   defaultMsg: "玩的就是心跳！",
+  // },
+  // {
+  //   name: "猜拳红包",
+  //   value: "rockPaperScissors",
+  //   icon: "el-icon-scissors",
+  //   desc: "石头剪刀布！",
+  //   defaultMsg: "石头剪刀布！",
+  // },
 ];
 
 const gestureOptions = [
@@ -213,8 +213,8 @@ watch(
 const form = reactive({
   type: "random",
   msg: redPacketTypes[0].defaultMsg,
-  money: 32,
-  count: 2,
+  money: 100,
+  count: 10,
   recivers: [],
   gesture: 0,
 });
@@ -246,8 +246,8 @@ const handleClose = () => {
   Object.assign(form, {
     type: "random",
     msg: redPacketTypes[0].defaultMsg,
-    money: 32,
-    count: 2,
+    money: 100,
+    count: 10,
     recivers: [],
     gesture: 0,
   });

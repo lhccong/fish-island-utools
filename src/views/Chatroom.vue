@@ -36,6 +36,7 @@ import { useChatroomStore } from "../stores/chatroom";
 import { userApi } from "../api/user";
 import { ElMessage } from "element-plus";
 import { ArrowLeft, ArrowRight } from "@element-plus/icons-vue";
+import { BASE_URL } from "../api/config";
 
 const chatInputRef = ref(null);
 const userStore = useUserStore();
@@ -96,14 +97,123 @@ const getCurrentBlacklist = () => {
   return currentUser ? allBlacklists[currentUser] || [] : [];
 };
 
+// 将新的 UserChatResponse 格式转换为现有格式
+const transformUserChatResponse = (user) => {
+  if (!user) return null;
+  
+  // 如果已经是旧格式，直接返回
+  if (user.userName && user.userAvatarURL48) {
+    return user;
+  }
+  
+  // 转换新格式到旧格式
+  let baseAvatar = user.avatar || '';
+  
+  // 确保头像 URL 是完整的（如果是相对路径，需要转换为绝对路径）
+  if (baseAvatar && !baseAvatar.startsWith('http://') && !baseAvatar.startsWith('https://') && !baseAvatar.startsWith('data:')) {
+    // 如果是相对路径，尝试添加基础 URL
+    if (baseAvatar.startsWith('/')) {
+      // 如果以 / 开头，使用 API 基础 URL 或当前域名
+      const baseUrl = BASE_URL || window.location.origin;
+      baseAvatar = baseUrl.replace(/\/$/, '') + baseAvatar;
+    } else {
+      // 其他情况，可能需要添加基础路径
+      const baseUrl = BASE_URL || window.location.origin;
+      baseAvatar = baseUrl.replace(/\/$/, '') + '/' + baseAvatar;
+    }
+  }
+  
+  // 生成不同尺寸的头像 URL
+  // 注意：如果 API 返回的头像 URL 不支持 size 参数，则所有尺寸都使用原始 URL
+  const getAvatarUrl = (size) => {
+    if (!baseAvatar) return '';
+    
+    // 如果是 data URI，直接返回
+    if (baseAvatar.startsWith('data:')) {
+      return baseAvatar;
+    }
+    
+    // 检测 URL 是否已经包含图片处理参数或特殊格式
+    // 如果包含以下情况，直接使用原始 URL，不添加 size 参数：
+    // 1. 包含 imageMogr2（七牛云图片处理）
+    // 2. 包含 imageView2（七牛云图片查看）
+    // 3. 是 GIF 格式（GIF 添加参数可能破坏动画）
+    // 4. 包含复杂的查询参数结构
+    const hasImageProcessing = 
+      baseAvatar.includes('imageMogr2') || 
+      baseAvatar.includes('imageView2') ||
+      baseAvatar.toLowerCase().includes('.gif') ||
+      baseAvatar.includes('%7C'); // 包含编码的特殊字符
+    
+    if (hasImageProcessing) {
+      // 对于已经包含图片处理参数的 URL，直接返回原始 URL
+      return baseAvatar;
+    }
+    
+    // 尝试在 URL 中添加或替换 size 参数
+    try {
+      const url = new URL(baseAvatar);
+      // 检查是否已经有 size 参数
+      if (url.searchParams.has('size')) {
+        url.searchParams.set('size', size.toString());
+      } else {
+        // 只有在没有 size 参数时才添加
+        url.searchParams.set('size', size.toString());
+      }
+      return url.toString();
+    } catch (e) {
+      // 如果 baseAvatar 不是完整 URL，尝试构造完整 URL
+      if (baseAvatar.startsWith('/')) {
+        const baseUrl = BASE_URL || window.location.origin;
+        return baseUrl.replace(/\/$/, '') + baseAvatar;
+      }
+      // 如果仍然失败，直接返回原始值
+      return baseAvatar;
+    }
+  };
+  
+  return {
+    // 新字段映射到旧字段
+    userName: user.name || user.id || '',
+    userNickname: user.name || user.id || '',
+    userAvatarURL: baseAvatar,
+    userAvatarURL20: getAvatarUrl(20),
+    userAvatarURL48: getAvatarUrl(48) || baseAvatar, // 默认使用原始头像
+    userAvatarURL210: getAvatarUrl(210),
+    // 保留新字段以便将来使用
+    id: user.id,
+    avatar: user.avatar,
+    avatarFramerUrl: user.avatarFramerUrl,
+    isAdmin: user.isAdmin,
+    level: user.level,
+    points: user.points,
+    status: user.status,
+    titleId: user.titleId,
+    titleIdList: user.titleIdList,
+    userProfile: user.userProfile,
+    // 兼容字段
+    userPoint: user.points,
+    userIntro: user.userProfile,
+  };
+};
+
 // 消息处理器映射
 const messageHandlers = {
   online: (data) => {
     // console.log("处理在线用户消息:", data);
+    // 转换用户数据格式（如果是从新 API 返回的格式）
+    let transformedUsers = data.users || [];
+    if (transformedUsers.length > 0 && transformedUsers[0] && !transformedUsers[0].userName) {
+      // 如果用户数据是新格式，进行转换
+      transformedUsers = transformedUsers
+        .map(transformUserChatResponse)
+        .filter(Boolean);
+    }
+    
     // 使用store更新数据，自动处理缓存
-    chatroomStore.updateData(data);
+    chatroomStore.updateData({ ...data, users: transformedUsers });
     // 同步到本地ref
-    onlineUsers.value = data.users || [];
+    onlineUsers.value = transformedUsers;
     currentTopic.value = data.discussing || "";
   },
   msg: (data) => {
@@ -924,6 +1034,26 @@ const renderNestedQuotesFromMd = (md) => {
 };
 
 
+// 获取在线用户列表
+const fetchOnlineUsers = async () => {
+  try {
+    const response = await chatApi.getOnlineUserListUsingGet();
+    if (response.code === 0 && response.data) {
+      // 转换新格式到旧格式
+      const transformedUsers = response.data
+        .map(transformUserChatResponse)
+        .filter(Boolean); // 过滤掉 null 值
+      
+      // 更新 store 和本地 ref
+      chatroomStore.updateOnlineUsers(transformedUsers);
+      onlineUsers.value = transformedUsers;
+    }
+  } catch (error) {
+    console.error("获取在线用户列表失败:", error);
+    // 如果 API 失败，继续使用 WebSocket 数据
+  }
+};
+
 onMounted(() => {
   // 初始化聊天室store
   chatroomStore.init();
@@ -938,6 +1068,9 @@ onMounted(() => {
   // 从设置中获取侧边栏状态
   const userSettings = getUserSettings();
   showSidebar.value = !userSettings.defaultChatSidebarCollapsed;
+
+  // 获取在线用户列表
+  fetchOnlineUsers();
 
   connectWebSocket();
   loadMessages();

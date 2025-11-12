@@ -43,59 +43,30 @@
         <el-col :span="8">
           <div class="data-card">
             <div class="card-header">
-              <h2>
-                活跃度
-                <el-tooltip content="点击查看活跃度说明" placement="top">
-                  <span class="help-icon" @click="openHelpLink">?</span>
-                </el-tooltip>
-              </h2>
-              <span
-                class="liveness-tag"
-                :class="{ active: livenessStore.liveness >= 10 }"
-              >
-                {{ livenessStore.liveness >= 10 ? "已签到" : "未签到" }}
-              </span>
-            </div>
-            <div class="liveness-progress">
-              <div class="progress-bar">
-                <div
-                  class="progress"
-                  :style="{ width: `${livenessStore.liveness}%` }"
-                ></div>
-              </div>
-              <span class="progress-value">{{ livenessStore.liveness }}%</span>
-            </div>
-          </div>
-        </el-col>
-        <el-col :span="8">
-          <div class="data-card">
-            <div class="card-header">
-              <h2>在线时长</h2>
-            </div>
-            <div class="time-display">
-              <span class="time-value">{{
-                userStore.userOnlineMinute || 0
-              }}</span>
-              <span class="time-unit">分钟</span>
-            </div>
-          </div>
-        </el-col>
-        <el-col :span="8">
-          <div class="data-card">
-            <div class="card-header">
               <h2>每日奖励</h2>
             </div>
             <button
-              class="reward-button"
-              :class="{ claimed: rewardStatus }"
-              @click="claimReward"
-              :disabled="rewardStatus"
+                class="reward-button"
+                :class="{ claimed: rewardStatus }"
+                @click="claimReward"
+                :disabled="rewardStatus"
             >
               <span class="button-icon">🎁</span>
               <span class="button-text">{{
-                rewardStatus ? "已领取" : "领取奖励"
-              }}</span>
+                  rewardStatus ? "已领取" : "领取奖励"
+                }}</span>
             </button>
+          </div>
+        </el-col>
+
+        <el-col :span="16">
+          <div class="data-card">
+            <div class="card-header">
+              <h2>我的宠物</h2>
+            </div>
+            <div class="time-display">
+              暂未开启
+            </div>
           </div>
         </el-col>
       </el-row>
