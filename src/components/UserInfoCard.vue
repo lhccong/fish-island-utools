@@ -3,18 +3,24 @@
     <button class="close-btn" @click="$emit('close')">×</button>
     <div class="avatar-section">
       <img
-        :src="userInfo?.userAvatarURL48 || userInfo?.userAvatarURL"
+        :src="
+          userInfo?.userAvatarURL48 ||
+          userInfo?.userAvatarURL ||
+          userInfo?.userAvatar
+        "
         class="avatar"
       />
       <div class="user-basic">
-        <div class="nickname">{{ userInfo?.userNickname }}</div>
+        <div class="nickname">
+          {{ userInfo?.userNickname || userInfo?.userName || "未知用户" }}
+        </div>
         <div class="username">@{{ userInfo?.userName }}</div>
         <div class="status-row">
           <span
             class="status-indicator"
-            :class="{ online: userInfo?.userOnlineFlag }"
+            :class="{ online: true }"
           ></span>
-          <span>{{ userInfo?.userOnlineFlag ? "在线" : "离线" }}</span>
+          <span>{{"在线" }}</span>
         </div>
       </div>
     </div>
@@ -46,10 +52,10 @@
         查看详情
       </button>
       <button
-        class="action-btn message"
-        @click="$emit('message', userInfo?.userName)"
+        class="action-btn mention"
+        @click="$emit('mention', userInfo?.userName || '')"
       >
-        发消息
+        @TA
       </button>
     </div>
   </div>
@@ -59,7 +65,8 @@
 import { ref, onMounted, watch, computed } from "vue";
 import { userApi } from "../api";
 const props = defineProps({
-  userName: { type: String, required: true },
+  userId: { type: [Number, String], default: null },
+  userName: { type: String, default: "" },
   x: { type: Number, default: 0 },
   y: { type: Number, default: 0 },
   currentUser: { type: String, default: "" },
@@ -67,16 +74,30 @@ const props = defineProps({
 const userInfo = ref(null);
 
 const fetchUserInfo = async () => {
-  if (!props.userName) return;
-  const res = await userApi.getUserProfile(props.userName);
-  userInfo.value = res;
+  try {
+    if (props.userId !== null && props.userId !== undefined && props.userId !== "") {
+      const rawId =
+        typeof props.userId === "string" ? props.userId.trim() : String(props.userId);
+      if (rawId && /^\d+$/.test(rawId)) {
+        const res = await userApi.getUserVoById(rawId);
+        userInfo.value = res;
+        return;
+      }
+    }
+    if (!props.userName) return;
+    const res = await userApi.getUserProfile(props.userName);
+    userInfo.value = res;
+  } catch (error) {
+    console.error("获取用户信息失败:", error);
+    userInfo.value = null;
+  }
 };
 
 const isCurrentUser = computed(() => {
   return props.currentUser === props.userName;
 });
 
-watch(() => props.userName, fetchUserInfo, { immediate: true });
+watch(() => [props.userId, props.userName], fetchUserInfo, { immediate: true });
 onMounted(fetchUserInfo);
 </script>
 
@@ -233,11 +254,11 @@ onMounted(fetchUserInfo);
 .action-btn.detail:hover {
   background: var(--card-bg);
 }
-.action-btn.message {
+.action-btn.mention {
   background: var(--button-bg);
   color: var(--button-text);
 }
-.action-btn.message:hover {
+.action-btn.mention:hover {
   background: var(--primary-color);
 }
 </style>

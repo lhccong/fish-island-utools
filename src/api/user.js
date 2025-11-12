@@ -1,5 +1,38 @@
 import { request } from "./request";
 
+const normalizeUserInfo = (user) => {
+  if (!user || typeof user !== "object") {
+    return null;
+  }
+
+  const avatarFromResponse =
+    user.userAvatarURL ||
+    user.userAvatarURL48 ||
+    user.userAvatar ||
+    user.avatar ||
+    null;
+
+  const avatar48FromResponse =
+    user.userAvatarURL48 || user.userAvatarURL || user.userAvatar || user.avatar || null;
+
+  const rawId = user.id ?? user.userId ?? null;
+  const normalizedId =
+    typeof rawId === "string"
+      ? rawId
+      : rawId !== null && rawId !== undefined
+      ? String(rawId)
+      : null;
+
+  return {
+    ...user,
+    id: normalizedId ?? user.id,
+    userId: normalizedId ?? user.userId ?? user.id ?? null,
+    userAvatarURL: avatarFromResponse,
+    userAvatarURL48: avatar48FromResponse,
+    userNickname: user.userNickname || user.nickname || user.userName || user.name || "",
+  };
+};
+
 export const userApi = {
   // 登录（旧接口，保留兼容）
   login(nameOrEmail, userPassword, mfaCode) {
@@ -72,8 +105,29 @@ export const userApi = {
     return request.get("/api/user/get/login", options || {});
   },
   // 获取用户资料
-  getUserProfile(username) {
-    return request.get(`/user/${username}`);
+  async getUserProfile(identifier) {
+    const shouldUseIdLookup =
+      typeof identifier === "number" ||
+      (typeof identifier === "string" && /^\d+$/.test(identifier.trim()));
+
+    if (shouldUseIdLookup) {
+      return this.getUserVoById(identifier);
+    }
+    const res = await request.get(`/user/${identifier}`);
+    return normalizeUserInfo(res);
+  },
+  async getUserVoById(id) {
+    if (typeof id === "undefined" || id === null || id === "") {
+      return null;
+    }
+    const normalizedId =
+      typeof id === "string" ? id.trim() : String(id);
+    if (!normalizedId) {
+      return null;
+    }
+    const res = await request.get("/api/user/get/vo", { id: normalizedId });
+    const user = res?.data ?? res;
+    return normalizeUserInfo(user);
   },
 
   // 更新用户资料

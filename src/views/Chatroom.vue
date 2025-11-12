@@ -59,6 +59,20 @@ const bells = ref([])
 
 const DEFAULT_MESSAGE_PAGE_SIZE = 20;
 
+// 兼容旧格式的 [img]url[/img] 标记，转换为标准 img 标签
+const convertLegacyImageTags = (input = "") => {
+  if (typeof input !== "string" || !input) {
+    return input;
+  }
+  return input.replace(/\[img\]\s*([\s\S]*?)\s*\[\/img\]/gi, (_match, url) => {
+    const normalized = String(url || "").trim();
+    if (!normalized) {
+      return "";
+    }
+    return `<img src="${normalized}" alt="图片" />`;
+  });
+};
+
 const transformRoomMessageVoToLegacy = (record) => {
   if (!record) return null;
   const message = record.messageWrapper?.message;
@@ -337,6 +351,10 @@ const messageHandlers = {
   msg: (data) => {
     // 确保消息有必要字段，并添加到消息列表
     if (data.oId && data.content) {
+      data.content = convertLegacyImageTags(data.content);
+      if (data.md) {
+        data.md = convertLegacyImageTags(data.md);
+      }
       const isSelf = data.userName === userStore.userInfo?.userName;
       const hasImgTag = /\<img[^>]+src=/.test(data.content);
       const containsGenUrlInContent = /https?:\/\/fishpi\.cn\/gen/.test(data.content || '');
@@ -524,6 +542,10 @@ const handleMessage = (data) => {
     // 如果没有特定的处理器，将其视为普通聊天消息
     // 确保消息有必要字段，并添加到消息列表
     if (data.oId && data.content) {
+      data.content = convertLegacyImageTags(data.content);
+      if (data.md) {
+        data.md = convertLegacyImageTags(data.md);
+      }
       const isSelf = data.userName === userStore.userInfo?.userName;
       messages.value = [...messages.value, { ...data, isSelf }];
     }
@@ -1116,7 +1138,8 @@ const generateImageCardFromString = (inputStr) => {
 // 在完整 HTML 片段中将 fishpi 特殊图片 <img> 原位替换为 <figure>
 const replaceSpecialImagesInHtmlContent = (html) => {
   if (!html) return html;
-  return html.replace(/<img[^>]+src=["'](https?:[^"']*fishpi\.cn\/gen[^"']*)["'][^>]*>/gi, (match) => {
+  const htmlWithConvertedImages = convertLegacyImageTags(html);
+  return htmlWithConvertedImages.replace(/<img[^>]+src=["'](https?:[^"']*fishpi\.cn\/gen[^"']*)["'][^>]*>/gi, (match) => {
     console.log("match12222222222222222222222222222333333123333333333333333333333333333333:", match);
     try {
       return generateImageCardFromString(match);

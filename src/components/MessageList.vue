@@ -56,7 +56,7 @@
           'message-row-self': item.userName === userStore.userInfo?.userName,
         }">
           <img :src="item.userAvatarURL48" alt="avatar" class="message-avatar"
-            @click="openUserInfoCard(item.userName, $event)" @contextmenu.prevent="
+            @click="openUserInfoCard(item.userId, item.userName, $event)" @contextmenu.prevent="
               onAvatarContextMenu($event, item.userName, item.userAvatarURL48)
               " />
           <div class="message-bubble">
@@ -207,9 +207,9 @@
 
     <!-- 用户信息卡片弹窗 -->
     <div v-if="showUserInfoModal" class="user-info-modal" @click.self="closeUserInfoCard">
-      <UserInfoCard :userName="selectedUserName" :x="userInfoCardX" :y="userInfoCardY"
+      <UserInfoCard :userId="selectedUserId" :userName="selectedUserName" :x="userInfoCardX" :y="userInfoCardY"
         :currentUser="userStore.userInfo?.userName" @close="closeUserInfoCard" @detail="handleUserDetail"
-        @message="handleUserMessage" />
+        @mention="handleUserMention" />
     </div>
 
     <UserContextMenu :visible="showContextMenu" :x="contextMenuX" :y="contextMenuY" :items="userContextMenuItems"
@@ -746,11 +746,14 @@ const showUserProfile = (userName) => {
 
 // 用户信息卡片弹窗
 const showUserInfoModal = ref(false);
+const selectedUserId = ref(null);
 const selectedUserName = ref("");
 const userInfoCardX = ref(0);
 const userInfoCardY = ref(0);
 
-const openUserInfoCard = (userName, event) => {
+const openUserInfoCard = (userId, userName, event) => {
+  selectedUserId.value =
+    userId === null || typeof userId === "undefined" ? null : String(userId);
   selectedUserName.value = userName;
 
   const cardWidth = 320; // 估算卡片宽度
@@ -780,6 +783,7 @@ const openUserInfoCard = (userName, event) => {
 };
 const closeUserInfoCard = () => {
   showUserInfoModal.value = false;
+  selectedUserId.value = null;
   selectedUserName.value = "";
 };
 
@@ -792,6 +796,11 @@ const handleUserMessage = (userName) => {
   closeUserInfoCard();
   utools.dbStorage.setItem("private-chat-user", userName);
   router.push(`/private-chat?user=${userName}`);
+};
+const handleUserMention = (userName) => {
+  closeUserInfoCard();
+  if (!userName) return;
+  emit("at-user", userName);
 };
 
 const showContextMenu = ref(false);

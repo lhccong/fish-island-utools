@@ -1,13 +1,5 @@
 <template>
   <div class="hot-posts-container">
-    <div class="hot-posts-header">
-      <h2>帖子热榜</h2>
-      <div class="update-time" v-if="updateTime">
-        <i class="fas fa-clock"></i>
-        更新时间: {{ updateTime }}
-      </div>
-    </div>
-
     <div class="hot-posts-content">
       <el-scrollbar>
         <div v-if="loading" class="loading-container">
@@ -118,11 +110,11 @@ const formatTime = (timeStr) => {
     const date = new Date(timeStr);
     const now = new Date();
     const diff = now - date; // 时间差（毫秒）
-    
+
     const minutes = Math.floor(diff / (1000 * 60));
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (minutes < 1) {
       return "刚刚更新";
     } else if (minutes < 60) {
