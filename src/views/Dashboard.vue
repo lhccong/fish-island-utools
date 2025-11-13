@@ -43,17 +43,16 @@
         <el-col :span="8">
           <div class="data-card">
             <div class="card-header">
-              <h2>每日奖励</h2>
+              <h2>每日签到</h2>
             </div>
             <button
                 class="reward-button"
-                :class="{ claimed: rewardStatus }"
-                @click="claimReward"
-                :disabled="rewardStatus"
+                :class="{ claimed: hasCheckedIn }"
+                @click="handleCheckin"
             >
               <span class="button-icon">🎁</span>
               <span class="button-text">{{
-                  rewardStatus ? "已领取" : "领取奖励"
+                  hasCheckedIn ? "今日已签到" : isCheckinAnimating ? "签到中..." : "立即签到"
                 }}</span>
             </button>
           </div>
@@ -71,27 +70,6 @@
         </el-col>
       </el-row>
     </div>
-    <el-dialog
-      v-model="showRewardDialog"
-      title="领取奖励"
-      width="30%"
-      :show-close="false"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      class="reward-dialog"
-    >
-      <div class="reward-dialog-content">
-        <div class="reward-icon">🎁</div>
-        <div class="reward-message">恭喜获得 {{ rewardPoints }} 积分！</div>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button type="primary" @click="showRewardDialog = false"
-            >确定</el-button
-          >
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -101,14 +79,13 @@ import { userApi } from "../api";
 import { useUserStore } from "../stores/user";
 import { useLivenessStore } from "../stores/liveness";
 import { useDashboardStore } from "../stores/dashboard";
-import { ElRow, ElCol, ElMessage } from "element-plus";
+import { ElMessage } from "element-plus";
 
 const userStore = useUserStore();
 const livenessStore = useLivenessStore();
 const dashboardStore = useDashboardStore();
-const rewardStatus = ref(false);
-const showRewardDialog = ref(false);
-const rewardPoints = ref(0);
+const hasCheckedIn = ref(false);
+const isCheckinAnimating = ref(false);
 
 // 新增：欢迎卡片相关数据
 const todayStr = ref("");
@@ -176,8 +153,50 @@ const holidayMessage = computed(() => dashboardStore.holidayMessage);
 const dailyQuote = computed(() => dashboardStore.dailyQuote);
 const quoteAuthor = computed(() => dashboardStore.quoteAuthor);
 
+const isSameDay = (dateA, dateB) => {
+  return (
+    dateA.getFullYear() === dateB.getFullYear() &&
+    dateA.getMonth() === dateB.getMonth() &&
+    dateA.getDate() === dateB.getDate()
+  );
+};
+
+const deriveCheckinStatusFromUser = () => {
+  const lastSignIn = userStore.userInfo?.lastSignInDate;
+  if (!lastSignIn) {
+    hasCheckedIn.value = false;
+    return;
+  }
+  const lastSignInDate = new Date(lastSignIn);
+  if (Number.isNaN(lastSignInDate.getTime())) {
+    hasCheckedIn.value = false;
+    return;
+  }
+  const today = new Date();
+  hasCheckedIn.value = isSameDay(lastSignInDate, today);
+};
+
+const fetchCheckinStatus = async (force = false) => {
+  try {
+    await userStore.fetchUserInfo(force);
+    deriveCheckinStatusFromUser();
+  } catch (error) {
+    console.error("获取签到状态失败:", error);
+  }
+};
+
+const handleAccountSwitch = async () => {
+  await livenessStore.init();
+  await fetchCheckinStatus(true);
+};
+
 onMounted(async () => {
-  await fetchRewardStatus();
+  deriveCheckinStatusFromUser();
+  if (!userStore.userInfo) {
+    await fetchCheckinStatus(true);
+  } else if (userStore.shouldRefetch) {
+    await fetchCheckinStatus();
+  }
   // 设置今日日期
   const now = new Date();
   const weekArr = ["日", "一", "二", "三", "四", "五", "六"];
@@ -195,49 +214,47 @@ onMounted(async () => {
   }, 60000);
 
   // 监听账号切换事件
-  window.addEventListener("fishpi:account-switched", async () => {
-    await livenessStore.init();
-    await fetchRewardStatus();
-  });
+  window.addEventListener("fishpi:account-switched", handleAccountSwitch);
 });
 
 onUnmounted(() => {
-  window.removeEventListener("fishpi:account-switched", async () => {
-    await livenessStore.init();
-    await fetchRewardStatus();
-  });
+  window.removeEventListener("fishpi:account-switched", handleAccountSwitch);
 });
 
-const fetchRewardStatus = async () => {
-  try {
-    const res = await userApi.checkLivenessRewardStatus();
-    rewardStatus.value = res.isCollectedYesterdayLivenessReward;
-
-  } catch (error) {
-    console.error("获取奖励状态失败:", error);
+const handleCheckin = async () => {
+  if (hasCheckedIn.value || isCheckinAnimating.value) {
+    return;
   }
-};
 
-const claimReward = async () => {
   try {
-    const res = await userApi.claimYesterdayLivenessReward();
-
-    if (res.sum === -1) {
-      ElMessage.warning("您已经领取过奖励了");
+    isCheckinAnimating.value = true;
+    const res = await userApi.signIn();
+    if (res?.code === 0) {
+      const succeed = typeof res.data === "undefined" ? true : !!res.data;
+      if (succeed) {
+        hasCheckedIn.value = true;
+        const isVip = userStore.isVip;
+        if (isVip) {
+          ElMessage.success("摸鱼打卡成功！获得 20（10 点可用积分）积分");
+        } else {
+          ElMessage.success("摸鱼打卡成功！获得 10 积分");
+        }
+        await fetchCheckinStatus(true);
+      } else {
+        hasCheckedIn.value = true;
+        ElMessage.warning("您今天已经签到过啦，明天再来~");
+      }
     } else {
-      rewardPoints.value = res.sum;
-      showRewardDialog.value = true;
-      rewardStatus.value = true;
+      ElMessage.error(res?.msg || "签到失败，请稍后重试");
     }
   } catch (error) {
-    console.error("领取奖励失败:", error);
-    ElMessage.error("领取失败，请稍后重试");
+    console.error("签到失败:", error);
+    ElMessage.error("签到失败，请稍后重试");
+  } finally {
+    isCheckinAnimating.value = false;
   }
 };
 
-const openHelpLink = () => {
-  utools.shellOpenExternal("https://yucoder.cn/article/1683775497629");
-};
 </script>
 
 <style scoped>
@@ -433,18 +450,19 @@ const openHelpLink = () => {
   transform: translateY(-1px);
 }
 .reward-button:disabled {
-  background: #e2e8f0;
   cursor: not-allowed;
-  opacity: 0.7;
 }
 .reward-button.claimed {
-  background: #6b7280;
+  background: var(--primary-color, #3b82f6);
   cursor: not-allowed;
-  opacity: 0.8;
+}
+.reward-button.claimed .button-text {
+  color: #fde68a;
+  font-weight: 700;
 }
 .reward-button.claimed:hover {
   transform: none;
-  background: #6b7280;
+  background: var(--primary-color, #3b82f6);
   cursor: not-allowed;
 }
 .button-icon {

@@ -197,6 +197,11 @@ export const userApi = {
     return request.get("/user/checkedIn");
   },
 
+  // 签到
+  signIn() {
+    return request.post("/api/user/signIn", {});
+  },
+
   // 领取昨日活跃奖励
   claimYesterdayLivenessReward() {
     return request.get("/activity/yesterday-liveness-reward-api");
