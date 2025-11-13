@@ -158,11 +158,12 @@
                   @change="handleDefaultPageChange"
                 >
                   <el-option label="首页" value="dashboard" />
-                  <el-option label="聊天室" value="chatroom" />
-                  <el-option label="帖子" value="posts" />
-                  <el-option label="私聊" value="private-chat" />
-                  <el-option label="清风明月" value="moon" />
-                  <el-option label="通知" value="notifications" />
+                  <el-option label="帖子热榜" value="hot-posts" />
+                  <el-option label="摸鱼室" value="chatroom" />
+<!--                  <el-option label="帖子" value="posts" />-->
+<!--                  <el-option label="私聊" value="private-chat" />-->
+<!--                  <el-option label="清风明月" value="moon" />-->
+<!--                  <el-option label="通知" value="notifications" />-->
                 </el-select>
               </div>
             </div>
