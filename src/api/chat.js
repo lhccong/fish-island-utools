@@ -70,6 +70,13 @@ export const chatApi = {
     });
   },
 
+  // 获取红包抢购记录
+  getRedPacketRecords(redPacketId) {
+    return request.get("/api/redpacket/records", {
+      redPacketId,
+    });
+  },
+
   // 获取私信列表
   getPrivateMessages() {
     return request.get("/chat/get-list");

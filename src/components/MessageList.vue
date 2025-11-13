@@ -143,10 +143,12 @@
                         {{ isGrabbingRedPacket(item) ? "抢红包中..." : "抢红包" }}
                       </button>
                     </div>
-                  </div>
-                  <!-- 显示抢到的积分：用户已抢过时显示在卡片外面 -->
-                  <div v-if="isRedPacketGrabbed(item)" class="grabbed-result">
-                    已抢到 {{ getGrabbedAmount(item) }} 积分
+                    <!-- 查看详情按钮：在卡片内部，显示在底部 -->
+                    <div class="view-details-button-inner">
+                      <button class="view-details-btn" @click.stop="showRedPacketRecords(item)">
+                        查看详情
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div class="message-text" v-else v-html="item.content"
@@ -199,6 +201,40 @@
 
     <MsgContextMenu :visible="showMsgContextMenu" :x="msgContextMenuX" :y="msgContextMenuY" :items="msgContextMenuItems"
       @action="handleMsgContextMenuAction" />
+
+    <!-- 红包抢购记录详情弹窗 -->
+    <div v-if="showRedPacketRecordsModal" class="red-packet-records-modal" @click.self="closeRedPacketRecordsModal">
+      <div class="red-packet-records-modal-content">
+        <div class="red-packet-records-modal-header">
+          <h3>红包详情</h3>
+          <button class="close-btn" @click="closeRedPacketRecordsModal">×</button>
+        </div>
+        <div class="red-packet-records-modal-body">
+          <div v-if="loadingRecords" class="loading-records">加载中...</div>
+          <div v-else-if="redPacketRecords.length === 0" class="no-records">暂无抢购记录</div>
+          <div v-else class="records-list">
+            <div
+              v-for="record in redPacketRecords"
+              :key="record.id"
+              class="record-item"
+              :class="{ 'lucky-king': record.isLuckyKing }"
+            >
+              <img :src="record.userAvatar" class="record-avatar" :alt="record.userName" />
+              <div class="record-info">
+                <div class="record-user">
+                  <span class="user-name">{{ record.userName }}</span>
+                  <span v-if="record.isLuckyKing" class="lucky-king-tag">手气王</span>
+                </div>
+                <div class="record-time">{{ formatRecordTime(record.grabTime) }}</div>
+              </div>
+              <div class="record-amount">
+                {{ record.amount }} 积分
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -919,6 +955,12 @@ const grabRedPacket = async (item) => {
 const showRedPacketModal = ref(false);
 const currentRedPacket = ref(null);
 
+// 红包抢购记录弹窗状态
+const showRedPacketRecordsModal = ref(false);
+const redPacketRecords = ref([]);
+const loadingRecords = ref(false);
+const currentRedPacketIdForRecords = ref(null);
+
 // 显示红包详情
 const showRedPacketDetails = async (item) => {
   try {
@@ -949,6 +991,94 @@ const showRedPacketDetails = async (item) => {
 const closeRedPacketModal = () => {
   showRedPacketModal.value = false;
   currentRedPacket.value = null;
+};
+
+// 显示红包抢购记录
+const showRedPacketRecords = async (item) => {
+  const redPacket = parseRedPacketMessage(item.content);
+  const redPacketId = redPacket.redPacketId;
+  
+  if (!redPacketId) {
+    ElMessage.error("红包ID不存在");
+    return;
+  }
+
+  currentRedPacketIdForRecords.value = redPacketId;
+  showRedPacketRecordsModal.value = true;
+  loadingRecords.value = true;
+  redPacketRecords.value = [];
+
+  try {
+    const response = await chatApi.getRedPacketRecords(redPacketId);
+    if (response.code === 0 && response.data) {
+      // 处理记录数据，标识手气王
+      const records = response.data.map(record => ({ ...record }));
+      
+      // 找到手气王：金额最大，如果金额相同则时间最早
+      if (records.length > 0) {
+        // 按金额降序，时间升序排序来找到手气王
+        const sortedRecords = [...records].sort((a, b) => {
+          const amountDiff = (b.amount || 0) - (a.amount || 0);
+          if (amountDiff !== 0) {
+            return amountDiff;
+          }
+          // 金额相同，按时间升序（最早的为手气王）
+          const timeA = new Date(a.grabTime || 0).getTime();
+          const timeB = new Date(b.grabTime || 0).getTime();
+          return timeA - timeB;
+        });
+        
+        // 第一个是手气王
+        const luckyKing = sortedRecords[0];
+        const maxAmount = luckyKing.amount || 0;
+        
+        // 标记所有金额等于最大金额且时间最早的记录为手气王
+        records.forEach(record => {
+          if (record.amount === maxAmount) {
+            const recordTime = new Date(record.grabTime || 0).getTime();
+            const kingTime = new Date(luckyKing.grabTime || 0).getTime();
+            if (recordTime === kingTime) {
+              record.isLuckyKing = true;
+            }
+          }
+        });
+      }
+      
+      // 按积分大小从大到小排序
+      records.sort((a, b) => {
+        const amountDiff = (b.amount || 0) - (a.amount || 0);
+        if (amountDiff !== 0) {
+          return amountDiff;
+        }
+        // 金额相同，按时间升序（最早的在前）
+        const timeA = new Date(a.grabTime || 0).getTime();
+        const timeB = new Date(b.grabTime || 0).getTime();
+        return timeA - timeB;
+      });
+      
+      redPacketRecords.value = records;
+    } else {
+      ElMessage.error(response.message || "获取抢购记录失败");
+    }
+  } catch (error) {
+    console.error("获取红包抢购记录失败:", error);
+    ElMessage.error(error.message || "获取抢购记录失败");
+  } finally {
+    loadingRecords.value = false;
+  }
+};
+
+// 关闭红包抢购记录弹窗
+const closeRedPacketRecordsModal = () => {
+  showRedPacketRecordsModal.value = false;
+  redPacketRecords.value = [];
+  currentRedPacketIdForRecords.value = null;
+};
+
+// 格式化记录时间
+const formatRecordTime = (time) => {
+  if (!time) return "";
+  return dayjs(time).format("YYYY-MM-DD HH:mm:ss");
 };
 
 // 查看用户信息
@@ -1958,6 +2088,31 @@ const filterBlacklistMessages = () => {
   transform: none;
 }
 
+/* 查看详情按钮样式 */
+.message-text :deep(.view-details-button-inner) {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.message-text :deep(.view-details-btn) {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  padding: 4px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.message-text :deep(.view-details-btn:hover) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
 /* 抢红包结果样式 */
 .grabbed-result {
   margin-top: 8px;
@@ -1969,6 +2124,153 @@ const filterBlacklistMessages = () => {
   font-size: 14px;
   font-weight: 500;
   box-shadow: 0 2px 8px rgba(82, 196, 26, 0.3);
+}
+
+/* 红包抢购记录弹窗样式 */
+.red-packet-records-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.red-packet-records-modal-content {
+  background: #fff;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.red-packet-records-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.red-packet-records-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.red-packet-records-modal-header .close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.red-packet-records-modal-header .close-btn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.red-packet-records-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.loading-records,
+.no-records {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 14px;
+}
+
+.records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.record-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f9f9f9;
+  transition: all 0.3s ease;
+}
+
+.record-item:hover {
+  background: #f0f0f0;
+}
+
+.record-item.lucky-king {
+  background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%);
+  border: 1px solid #ffd591;
+}
+
+.record-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.record-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.record-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.lucky-king-tag {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #8b6914;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(255, 215, 0, 0.3);
+}
+
+.record-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.record-amount {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ff4d4f;
+  flex-shrink: 0;
 }
 
 /* 红包详情弹窗 */
