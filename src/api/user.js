@@ -1,5 +1,57 @@
 import { request } from "./request";
 
+// 检查文件大小是否不超过 1MB
+const checkFileSize = (file) => {
+  const ONE_MB = 1 * 1024 * 1024;
+  return file && file.size <= ONE_MB;
+};
+
+// 压缩图片到合适体积（尽量 <1MB）
+const compressImage = async (file) => {
+  // 仅对图片类型进行压缩
+  if (!file || !file.type || !file.type.startsWith("image/")) {
+    return file;
+  }
+  // GIF 和动图不压缩以防丢帧
+  if (file.type === "image/gif") {
+    return file;
+  }
+  const imageBitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  // 基于最大边限制长边，避免超大分辨率
+  const maxDimension = 1920;
+  let targetWidth = imageBitmap.width;
+  let targetHeight = imageBitmap.height;
+  if (Math.max(targetWidth, targetHeight) > maxDimension) {
+    const scale = maxDimension / Math.max(targetWidth, targetHeight);
+    targetWidth = Math.round(targetWidth * scale);
+    targetHeight = Math.round(targetHeight * scale);
+  }
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+
+  // 导出为 JPEG 以获得更好的压缩比（对透明图会转白底）
+  const qualityCandidates = [0.8, 0.7, 0.6, 0.5];
+  for (const q of qualityCandidates) {
+    // eslint-disable-next-line no-await-in-loop
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", q)
+    );
+    if (!blob) continue;
+    if (blob.size <= 1024 * 1024 || q === qualityCandidates[qualityCandidates.length - 1]) {
+      const compressedFile = new File([blob], file.name.replace(/\.(png|jpeg|jpg|webp)$/i, ".jpg"), {
+        type: "image/jpeg",
+        lastModified: Date.now(),
+      });
+      return compressedFile;
+    }
+  }
+  return file;
+};
+
 const normalizeUserInfo = (user) => {
   if (!user || typeof user !== "object") {
     return null;
@@ -207,7 +259,7 @@ export const userApi = {
 
   // 上传图片
   uploadImage(file) {
-    // 检查文件类型
+    // 允许的扩展名（与原逻辑保持一致）
     const validTypes = [".jpg", ".jpeg", ".png", ".gif", ".mp4"];
     const fileExt = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
     if (!validTypes.includes(fileExt)) {
@@ -216,12 +268,55 @@ export const userApi = {
       );
     }
 
-    // 检查文件大小（20MB）
+    // 最大 20MB（与原逻辑一致）
     if (file.size > 20 * 1024 * 1024) {
       return Promise.reject(new Error("文件大小不能超过20MB"));
     }
 
-    return request.upload("/upload", [file]);
+    const doUpload = async () => {
+      // 超过 1MB 且是图片时尝试压缩
+      const isImage = file.type && file.type.startsWith("image/");
+      const needCompress = isImage && !checkFileSize(file);
+      const fileToUpload = needCompress ? await compressImage(file) : file;
+
+      const formData = new FormData();
+      formData.append("file", fileToUpload);
+
+      // 与参考逻辑一致：使用 biz 参数（默认 user_avatar，可按需调整）
+      const params = { biz: "user_avatar" };
+
+      // 直接使用底层 axios 实例，设置 multipart 和 params
+      const res = await request.instance.post("/api/file/minio/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        params,
+      });
+
+      // 期望返回 { code, data: 'https://...' }
+      if (!res || (typeof res !== "object")) {
+        throw new Error("上传失败");
+      }
+      // 与全局响应拦截一致：res 已是 response.data
+      if (res.code !== undefined && res.code !== 0) {
+        throw new Error(res.message || "上传失败");
+      }
+      const url = res.data;
+      if (!url) {
+        throw new Error("图片上传失败");
+      }
+      // 兼容旧调用处的数据结构：返回 succMap
+      return {
+        code: 0,
+        data: {
+          succMap: {
+            [file.name]: url,
+          },
+        },
+      };
+    };
+
+    return doUpload();
   },
 
   /**
