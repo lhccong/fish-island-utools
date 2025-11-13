@@ -3,7 +3,9 @@
     <WelcomeDialog />
     <div class="sidebar">
       <div class="logo">
-        <div class="logo-container" id="logo-animate"></div>
+        <div class="logo-container">
+          <img src="../assets/pic/logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
       </div>
       <nav class="navigation">
         <ul>
@@ -266,31 +268,8 @@ onMounted(async () => {
   await notificationStore.init();
   await livenessStore.init();
 
-  // 初始化 logo 动画
-  const params = {
-    container: document.getElementById("logo-animate"),
-    renderer: "svg",
-    loop: false,
-    autoplay: false,
-    animationData: logoData,
-  };
-
-  const anim = lottie.loadAnimation(params);
-
-  // 如果初始状态是收起，则播放动画
-  if (isCollapsed.value) {
-    anim.goToAndPlay(27, true);
-  }
-
-  // 添加鼠标悬停事件
-  setTimeout(() => {
-    const logoElement = document.getElementById("logo-animate");
-    if (logoElement) {
-      logoElement.addEventListener("mouseenter", () => {
-        anim.goToAndPlay(10, true);
-      });
-    }
-  }, 1000);
+  // 使用静态logo图片，不再需要动画初始化
+  console.log("Logo使用静态图片");
 
   // 如果未登录，跳转到登录页
   if (!userStore.isLoggedIn) {
