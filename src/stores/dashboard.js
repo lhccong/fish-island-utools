@@ -8,6 +8,18 @@ export const useDashboardStore = defineStore("dashboard", () => {
   const isHolidayToday = ref(false);
   const holidayMessage = ref("正在获取节假日信息...");
   const lastHolidayUpdate = ref(null);
+  
+  // 2026年默认节假日数据（作为备用）
+  const defaultHolidays2026 = [
+    { name: "元旦", date: "2026-01-01" },
+    { name: "春节", date: "2026-02-17" },
+    { name: "元宵节", date: "2026-03-03" },
+    { name: "清明节", date: "2026-04-04" },
+    { name: "劳动节", date: "2026-05-01" },
+    { name: "端午节", date: "2026-06-23" },
+    { name: "中秋节", date: "2026-09-20" },
+    { name: "国庆节", date: "2026-10-01" }
+  ];
 
   // 每日一言相关状态
   const dailyQuote = ref("");
@@ -91,18 +103,54 @@ export const useDashboardStore = defineStore("dashboard", () => {
           holidayMessage.value = `距离${nextData.holiday.name}还有${diffDays}天`;
         }
       } else {
-        holidayName.value = "未知";
-        holidayDays.value = "-";
-        isHolidayToday.value = false;
-        holidayMessage.value = "暂无节假日信息";
+        // 如果接口没有返回下一个节假日，使用2026年的默认节日数据
+        useDefaultHolidayData(now);
       }
       lastHolidayUpdate.value = today;
     } catch (e) {
       console.error("获取节假日信息失败:", e);
+      // 发生错误时，使用2026年的默认节日数据
+      useDefaultHolidayData(new Date());
+      lastHolidayUpdate.value = new Date().toDateString();
+    }
+  };
+  
+  // 使用默认节假日数据的辅助函数
+  const useDefaultHolidayData = (now) => {
+    let minDiffDays = Infinity;
+    let nextHoliday = null;
+    
+    // 遍历2026年的默认节假日，找到下一个最近的节假日
+    defaultHolidays2026.forEach(holiday => {
+      const holidayDate = new Date(holiday.date);
+      // 只算天数，不考虑时分秒
+      const diffTime = holidayDate.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // 只考虑未来的节假日
+      if (diffDays >= 0 && diffDays < minDiffDays) {
+        minDiffDays = diffDays;
+        nextHoliday = holiday;
+      }
+    });
+    
+    if (nextHoliday) {
+      holidayName.value = nextHoliday.name;
+      holidayDays.value = minDiffDays;
+      
+      if (minDiffDays === 0) {
+        holidayDays.value = "今天";
+        isHolidayToday.value = true;
+        holidayMessage.value = getHolidayGreeting(nextHoliday.name);
+      } else {
+        isHolidayToday.value = false;
+        holidayMessage.value = `距离${nextHoliday.name}还有${minDiffDays}天`;
+      }
+    } else {
       holidayName.value = "未知";
       holidayDays.value = "-";
       isHolidayToday.value = false;
-      holidayMessage.value = "获取节假日信息失败";
+      holidayMessage.value = "暂无节假日信息";
     }
   };
 
