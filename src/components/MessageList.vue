@@ -113,58 +113,40 @@
                 </div>
                 <div class="message-text" v-else-if="isRedPacketMessage(item.content)">
                   <div class="red-packet-card" :class="{
-                    finished:
-                      parseRedPacketMessage(item.content).got >=
-                      parseRedPacketMessage(item.content).count,
-                  }" @click="showRedPacketDetails(item)">
+                    finished: isRedPacketFinished(item),
+                  }">
                     <div class="red-packet-content">
                       <i class="red-packet-icon">🧧</i>
                       <div class="red-packet-info">
-                        <div class="red-packet-type">
-                          {{
-                            formatRedPacketType(
-                              parseRedPacketMessage(item.content).type
-                            )
-                          }}
-                        </div>
+                        <div class="red-packet-type">红包</div>
                         <div class="red-packet-msg">
-                          {{ parseRedPacketMessage(item.content).msg }}
+                          {{ getRedPacketName(item) || "红包" }}
                         </div>
                       </div>
                     </div>
                     <div class="red-packet-footer">
                       <div class="red-packet-amount">
-                        {{ parseRedPacketMessage(item.content).money
+                        {{ getRedPacketAmount(item) || 0
                         }}<span class="unit">积分</span>
                       </div>
                       <div class="red-packet-status">
                         {{
-                          parseRedPacketMessage(item.content).got >=
-                            parseRedPacketMessage(item.content).count
+                          isRedPacketFinished(item)
                             ? "已领完"
-                            : `剩余${parseRedPacketMessage(item.content).count -
-                            parseRedPacketMessage(item.content).got
-                            }/${parseRedPacketMessage(item.content).count}个`
+                            : `剩余${getRedPacketRemaining(item)}/${getRedPacketTotal(item)}个`
                         }}
                       </div>
                     </div>
+                    <!-- 抢红包按钮：在卡片内部，只在未领完且用户未抢过时显示 -->
+                    <div v-if="!isRedPacketFinished(item) && !isRedPacketGrabbed(item)" class="grab-red-packet-button-inner">
+                      <button class="grab-btn-inner" @click.stop="grabRedPacket(item)" :disabled="isGrabbingRedPacket(item)">
+                        {{ isGrabbingRedPacket(item) ? "抢红包中..." : "抢红包" }}
+                      </button>
+                    </div>
                   </div>
-                  <!-- 添加猜拳手势按钮 -->
-                  <div v-if="
-                    parseRedPacketMessage(item.content).type ===
-                    'rockPaperScissors' &&
-                    parseRedPacketMessage(item.content).got <
-                    parseRedPacketMessage(item.content).count
-                  " class="rock-paper-scissors-buttons">
-                    <button class="gesture-btn" @click.stop="openRedPacketWithGesture(item, 0)">
-                      ✊
-                    </button>
-                    <button class="gesture-btn" @click.stop="openRedPacketWithGesture(item, 1)">
-                      ✌️
-                    </button>
-                    <button class="gesture-btn" @click.stop="openRedPacketWithGesture(item, 2)">
-                      ✋
-                    </button>
+                  <!-- 显示抢到的积分：用户已抢过时显示在卡片外面 -->
+                  <div v-if="isRedPacketGrabbed(item)" class="grabbed-result">
+                    已抢到 {{ getGrabbedAmount(item) }} 积分
                   </div>
                 </div>
                 <div class="message-text" v-else v-html="item.content"
@@ -386,10 +368,23 @@ const checkIfAtBottom = () => {
   }
 };
 
-// 监听消息变化
+// 监听消息变化，自动加载红包详情
 watch(
   () => props.messages,
   (newMessages, oldMessages) => {
+    // 检测新增的红包消息，自动加载详情
+    if (newMessages.length > oldMessages.length) {
+      const oldMessageIds = new Set(oldMessages.map(msg => msg.oId));
+      const newRedPacketMessages = newMessages.filter(msg => {
+        return !oldMessageIds.has(msg.oId) && isRedPacketMessage(msg.content);
+      });
+      
+      // 异步加载所有新增红包的详情
+      newRedPacketMessages.forEach(item => {
+        loadRedPacketDetail(item);
+      });
+    }
+    
     if (newMessages.length > oldMessages.length) {
       const oldMessageSet = new Set(oldMessages);
       const addedMessages = newMessages.filter(
@@ -650,6 +645,14 @@ const getWeatherIcon = (code) => {
 
 // 判断是否为红包消息
 const isRedPacketMessage = (content) => {
+  if (!content || typeof content !== "string") {
+    return false;
+  }
+  // 检查是否是 [redpacket]...[/redpacket] 格式
+  if (/\[redpacket\]\s*[\s\S]*?\s*\[\/redpacket\]/i.test(content)) {
+    return true;
+  }
+  // 检查是否是 JSON 格式的红包消息
   try {
     const parsed = JSON.parse(content);
     return parsed.msgType === "redPacket";
@@ -660,6 +663,33 @@ const isRedPacketMessage = (content) => {
 
 // 解析红包消息
 const parseRedPacketMessage = (content) => {
+  if (!content || typeof content !== "string") {
+    return {};
+  }
+  // 处理 [redpacket]...[/redpacket] 格式
+  const redPacketMatch = content.match(/\[redpacket\]\s*([\s\S]*?)\s*\[\/redpacket\]/i);
+  if (redPacketMatch) {
+    const redPacketContent = String(redPacketMatch[1] || "").trim();
+    // 如果内容是 JSON 字符串，解析它
+    try {
+      const parsed = JSON.parse(redPacketContent);
+      if (parsed.msgType === "redPacket") {
+        return parsed;
+      }
+    } catch {
+      // 不是 JSON，是红包ID，返回默认结构
+      return {
+        msgType: "redPacket",
+        redPacketId: redPacketContent,
+        msg: "红包",
+        money: 0,
+        count: 0,
+        got: 0,
+        type: "random",
+      };
+    }
+  }
+  // 处理 JSON 格式
   try {
     return JSON.parse(content);
   } catch {
@@ -701,6 +731,188 @@ const formatRedPacketType = (type) => {
     // rockPaperScissors: "猜拳红包",
   };
   return typeMap[type] || type;
+};
+
+// 抢红包状态管理
+const grabbingRedPackets = ref(new Map()); // 正在抢的红包 oId -> true
+const grabbedRedPackets = ref(new Map()); // 已抢到的红包 oId -> 积分数量
+const redPacketDetails = ref(new Map()); // 红包详情 oId -> RedPacket详情
+
+// 加载红包详情
+const loadRedPacketDetail = async (item) => {
+  const redPacket = parseRedPacketMessage(item.content);
+  const redPacketId = redPacket.redPacketId;
+  
+  if (!redPacketId) {
+    return;
+  }
+
+  // 如果已经加载过详情，不再重复加载
+  if (redPacketDetails.value.has(item.oId)) {
+    return;
+  }
+
+  try {
+    const response = await chatApi.getRedPacketDetail(redPacketId);
+    if (response.code === 0 && response.data) {
+      redPacketDetails.value.set(item.oId, response.data);
+      
+      // 更新消息内容，使用详情接口返回的数据
+      const detail = response.data;
+      const updatedRedPacket = {
+        msgType: "redPacket",
+        redPacketId: redPacketId,
+        msg: detail.name || "红包",
+        money: detail.totalAmount || 0,
+        count: detail.count || 0,
+        got: (detail.count || 0) - (detail.remainingCount || 0),
+        type: detail.type === 1 ? "random" : detail.type === 2 ? "average" : "random",
+        detail: detail, // 保存完整详情
+      };
+      
+      const index = props.messages.findIndex(msg => msg.oId === item.oId);
+      if (index !== -1) {
+        const updatedMessages = [...props.messages];
+        updatedMessages[index] = {
+          ...updatedMessages[index],
+          content: JSON.stringify(updatedRedPacket),
+        };
+        emit("update-messages", updatedMessages);
+      }
+    }
+  } catch (error) {
+    console.error("获取红包详情失败:", error);
+  }
+};
+
+// 判断红包是否已领完
+const isRedPacketFinished = (item) => {
+  // 优先使用详情接口的数据
+  const detail = redPacketDetails.value.get(item.oId);
+  if (detail) {
+    return detail.remainingCount === 0 || detail.status !== 0;
+  }
+  
+  // 回退到使用消息内容中的数据
+  const redPacket = parseRedPacketMessage(item.content);
+  if (redPacket.detail) {
+    return redPacket.detail.remainingCount === 0 || redPacket.detail.status !== 0;
+  }
+  
+  // 最后使用got和count判断
+  return redPacket.got >= redPacket.count;
+};
+
+// 判断当前用户是否已抢过红包
+const isRedPacketGrabbed = (item) => {
+  return grabbedRedPackets.value.has(item.oId);
+};
+
+// 判断是否正在抢红包
+const isGrabbingRedPacket = (item) => {
+  return grabbingRedPackets.value.get(item.oId) === true;
+};
+
+// 获取剩余数量
+const getRedPacketRemaining = (item) => {
+  const detail = redPacketDetails.value.get(item.oId);
+  if (detail) {
+    return detail.remainingCount || 0;
+  }
+  
+  const redPacket = parseRedPacketMessage(item.content);
+  if (redPacket.detail) {
+    return redPacket.detail.remainingCount || 0;
+  }
+  
+  return Math.max(0, (redPacket.count || 0) - (redPacket.got || 0));
+};
+
+// 获取总数量
+const getRedPacketTotal = (item) => {
+  const detail = redPacketDetails.value.get(item.oId);
+  if (detail) {
+    return detail.count || 0;
+  }
+  
+  const redPacket = parseRedPacketMessage(item.content);
+  if (redPacket.detail) {
+    return redPacket.detail.count || 0;
+  }
+  
+  return redPacket.count || 0;
+};
+
+// 获取红包总金额
+const getRedPacketAmount = (item) => {
+  const detail = redPacketDetails.value.get(item.oId);
+  if (detail) {
+    return detail.totalAmount || 0;
+  }
+  
+  const redPacket = parseRedPacketMessage(item.content);
+  if (redPacket.detail) {
+    return redPacket.detail.totalAmount || 0;
+  }
+  
+  return redPacket.money || 0;
+};
+
+// 获取红包名称
+const getRedPacketName = (item) => {
+  const detail = redPacketDetails.value.get(item.oId);
+  if (detail && detail.name) {
+    return detail.name;
+  }
+  
+  const redPacket = parseRedPacketMessage(item.content);
+  if (redPacket.detail && redPacket.detail.name) {
+    return redPacket.detail.name;
+  }
+  
+  return redPacket.msg || "红包";
+};
+
+// 获取抢到的积分
+const getGrabbedAmount = (item) => {
+  return grabbedRedPackets.value.get(item.oId) || 0;
+};
+
+// 抢红包
+const grabRedPacket = async (item) => {
+  const redPacket = parseRedPacketMessage(item.content);
+  const redPacketId = redPacket.redPacketId;
+  
+  if (!redPacketId) {
+    ElMessage.error("红包ID不存在");
+    return;
+  }
+
+  if (isGrabbingRedPacket(item) || isRedPacketGrabbed(item)) {
+    return;
+  }
+
+  try {
+    grabbingRedPackets.value.set(item.oId, true);
+    const response = await chatApi.grabRedPacket(redPacketId);
+    
+    if (response.code === 0 && response.data !== undefined) {
+      const grabbedAmount = response.data;
+      grabbedRedPackets.value.set(item.oId, grabbedAmount);
+      ElMessage.success(`恭喜！抢到 ${grabbedAmount} 积分`);
+      
+      // 重新加载红包详情以获取最新状态
+      redPacketDetails.value.delete(item.oId);
+      await loadRedPacketDetail(item);
+    } else {
+      ElMessage.error(response.message || "抢红包失败");
+    }
+  } catch (error) {
+    console.error("抢红包失败:", error);
+    ElMessage.error(error.message || "抢红包失败");
+  } finally {
+    grabbingRedPackets.value.delete(item.oId);
+  }
 };
 
 // 红包弹窗状态
@@ -1162,6 +1374,13 @@ const checkBellsInMessage = (mainString, elementsArray) => {
 onMounted(() => {
   bells.value = getBells();
   scrollToBottom();
+  
+  // 加载已有红包消息的详情
+  props.messages.forEach(msg => {
+    if (isRedPacketMessage(msg.content)) {
+      loadRedPacketDetail(msg);
+    }
+  });
 });
 
 const userContextMenuItems = computed(() => [
@@ -1623,7 +1842,7 @@ const filterBlacklistMessages = () => {
   background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
   border: none;
   transition: all 0.2s ease;
-  cursor: pointer;
+  cursor: default;
 }
 
 .message-text :deep(.red-packet-content) {
@@ -1700,6 +1919,56 @@ const filterBlacklistMessages = () => {
 
 .message-text :deep(.red-packet-card.finished .red-packet-status) {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* 抢红包按钮样式 - 在卡片内部 */
+.message-text :deep(.grab-red-packet-button-inner) {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.message-text :deep(.grab-btn-inner) {
+  background: rgba(255, 255, 255, 0.95);
+  color: #ff4d4f;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  width: 100%;
+}
+
+.message-text :deep(.grab-btn-inner:hover:not(:disabled)) {
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.message-text :deep(.grab-btn-inner:active:not(:disabled)) {
+  transform: translateY(0);
+}
+
+.message-text :deep(.grab-btn-inner:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 抢红包结果样式 */
+.grabbed-result {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+  color: #fff;
+  border-radius: 20px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(82, 196, 26, 0.3);
 }
 
 /* 红包详情弹窗 */

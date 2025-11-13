@@ -53,6 +53,23 @@ export const chatApi = {
     return request.post("/chat-room/red-packet/open", { oId, gesture });
   },
 
+  // 抢红包
+  grabRedPacket(redPacketId) {
+    // 根据API文档，这个接口使用params作为查询参数，而不是请求体
+    return request.instance.post("/api/redpacket/grab", null, {
+      params: {
+        redPacketId,
+      },
+    });
+  },
+
+  // 获取红包详情
+  getRedPacketDetail(redPacketId) {
+    return request.get("/api/redpacket/detail", {
+      redPacketId,
+    });
+  },
+
   // 获取私信列表
   getPrivateMessages() {
     return request.get("/chat/get-list");

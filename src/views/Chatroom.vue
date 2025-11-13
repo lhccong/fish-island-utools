@@ -73,6 +73,39 @@ const convertLegacyImageTags = (input = "") => {
   });
 };
 
+// 兼容旧格式的 [redpacket]id[/redpacket] 标记，转换为 JSON 格式
+const convertLegacyRedPacketTags = (input = "") => {
+  if (typeof input !== "string" || !input) {
+    return input;
+  }
+  // 匹配 [redpacket]...[/redpacket] 格式
+  const redPacketMatch = input.match(/\[redpacket\]\s*([\s\S]*?)\s*\[\/redpacket\]/i);
+  if (redPacketMatch) {
+    const redPacketId = String(redPacketMatch[1] || "").trim();
+    if (redPacketId) {
+      // 如果内容是 JSON 字符串，直接返回
+      try {
+        const parsed = JSON.parse(redPacketId);
+        if (parsed.msgType === "redPacket") {
+          return redPacketId;
+        }
+      } catch {
+        // 不是 JSON，是红包ID，转换为 JSON 格式
+        return JSON.stringify({
+          msgType: "redPacket",
+          redPacketId: redPacketId,
+          msg: "红包",
+          money: 0,
+          count: 0,
+          got: 0,
+          type: "random",
+        });
+      }
+    }
+  }
+  return input;
+};
+
 const transformRoomMessageVoToLegacy = (record) => {
   if (!record) return null;
   const message = record.messageWrapper?.message;
@@ -351,6 +384,12 @@ const messageHandlers = {
   msg: (data) => {
     // 确保消息有必要字段，并添加到消息列表
     if (data.oId && data.content) {
+      // 先处理红包格式转换
+      data.content = convertLegacyRedPacketTags(data.content);
+      if (data.md) {
+        data.md = convertLegacyRedPacketTags(data.md);
+      }
+      // 再处理图片格式转换
       data.content = convertLegacyImageTags(data.content);
       if (data.md) {
         data.md = convertLegacyImageTags(data.md);
@@ -439,9 +478,21 @@ const messageHandlers = {
 
     // 更新原红包消息的状态
     const index = messages.value.findIndex((msg) => {
+      if (msg.oId !== data.oId) {
+        return false;
+      }
+      // 检查是否是红包消息（支持 JSON 格式和 [redpacket]...[/redpacket] 格式）
+      if (!msg.content || typeof msg.content !== "string") {
+        return false;
+      }
+      // 检查是否是 [redpacket]...[/redpacket] 格式
+      if (/\[redpacket\]\s*[\s\S]*?\s*\[\/redpacket\]/i.test(msg.content)) {
+        return true;
+      }
+      // 检查是否是 JSON 格式的红包消息
       try {
         const content = JSON.parse(msg.content);
-        return content.msgType === "redPacket" && msg.oId === data.oId;
+        return content.msgType === "redPacket";
       } catch {
         return false;
       }
@@ -450,7 +501,12 @@ const messageHandlers = {
     if (index !== -1) {
       const originalMsg = messages.value[index];
       try {
-        const content = JSON.parse(originalMsg.content);
+        // 如果内容是 [redpacket]...[/redpacket] 格式，先转换
+        let contentStr = originalMsg.content;
+        if (/\[redpacket\]\s*[\s\S]*?\s*\[\/redpacket\]/i.test(contentStr)) {
+          contentStr = convertLegacyRedPacketTags(contentStr);
+        }
+        const content = JSON.parse(contentStr);
         content.got = data.got;
         content.count = data.count;
         messages.value[index] = {
@@ -542,6 +598,12 @@ const handleMessage = (data) => {
     // 如果没有特定的处理器，将其视为普通聊天消息
     // 确保消息有必要字段，并添加到消息列表
     if (data.oId && data.content) {
+      // 先处理红包格式转换
+      data.content = convertLegacyRedPacketTags(data.content);
+      if (data.md) {
+        data.md = convertLegacyRedPacketTags(data.md);
+      }
+      // 再处理图片格式转换
       data.content = convertLegacyImageTags(data.content);
       if (data.md) {
         data.md = convertLegacyImageTags(data.md);
@@ -583,7 +645,10 @@ const loadMessages = async (page = 1) => {
         .reverse()
         .map((msg) => {
           try {
-            const content = replaceSpecialImagesInHtmlContent(msg.content || '');
+            // 先处理红包格式转换
+            let content = convertLegacyRedPacketTags(msg.content || '');
+            // 再处理特殊图片
+            content = replaceSpecialImagesInHtmlContent(content);
             return { ...msg, content, isHistory: true };
           } catch (e) {
             return { ...msg, isHistory: true };
@@ -848,8 +913,14 @@ const handleAddEmoji = async (item) => {
 };
 
 // 处理黑名单过滤后的消息更新
-const handleUpdateMessages = (filteredMessages) => {
-  messages.value = filteredMessages;
+const handleUpdateMessages = (updatedMessages) => {
+  // 如果传入的是数组，直接替换
+  if (Array.isArray(updatedMessages)) {
+    messages.value = updatedMessages;
+  } else {
+    // 兼容旧格式
+    messages.value = updatedMessages;
+  }
 };
 
 // 定义账号切换处理函数
