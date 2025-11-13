@@ -251,6 +251,7 @@ import MsgContextMenu from "./MsgContextMenu.vue";
 import { ElMessage } from "element-plus";
 import RedPacketModal from "./RedPacketModal.vue";
 import { createImagePreviewWindow } from "../utils/imagePreview";
+import wsManager from "../utils/websocket";
 
 const props = defineProps({
   messages: {
@@ -414,13 +415,13 @@ watch(
       const newRedPacketMessages = newMessages.filter(msg => {
         return !oldMessageIds.has(msg.oId) && isRedPacketMessage(msg.content);
       });
-      
+
       // 异步加载所有新增红包的详情
       newRedPacketMessages.forEach(item => {
         loadRedPacketDetail(item);
       });
     }
-    
+
     if (newMessages.length > oldMessages.length) {
       const oldMessageSet = new Set(oldMessages);
       const addedMessages = newMessages.filter(
@@ -778,7 +779,7 @@ const redPacketDetails = ref(new Map()); // 红包详情 oId -> RedPacket详情
 const loadRedPacketDetail = async (item) => {
   const redPacket = parseRedPacketMessage(item.content);
   const redPacketId = redPacket.redPacketId;
-  
+
   if (!redPacketId) {
     return;
   }
@@ -792,7 +793,7 @@ const loadRedPacketDetail = async (item) => {
     const response = await chatApi.getRedPacketDetail(redPacketId);
     if (response.code === 0 && response.data) {
       redPacketDetails.value.set(item.oId, response.data);
-      
+
       // 更新消息内容，使用详情接口返回的数据
       const detail = response.data;
       const updatedRedPacket = {
@@ -805,7 +806,7 @@ const loadRedPacketDetail = async (item) => {
         type: detail.type === 1 ? "random" : detail.type === 2 ? "average" : "random",
         detail: detail, // 保存完整详情
       };
-      
+
       const index = props.messages.findIndex(msg => msg.oId === item.oId);
       if (index !== -1) {
         const updatedMessages = [...props.messages];
@@ -828,13 +829,13 @@ const isRedPacketFinished = (item) => {
   if (detail) {
     return detail.remainingCount === 0 || detail.status !== 0;
   }
-  
+
   // 回退到使用消息内容中的数据
   const redPacket = parseRedPacketMessage(item.content);
   if (redPacket.detail) {
     return redPacket.detail.remainingCount === 0 || redPacket.detail.status !== 0;
   }
-  
+
   // 最后使用got和count判断
   return redPacket.got >= redPacket.count;
 };
@@ -855,12 +856,12 @@ const getRedPacketRemaining = (item) => {
   if (detail) {
     return detail.remainingCount || 0;
   }
-  
+
   const redPacket = parseRedPacketMessage(item.content);
   if (redPacket.detail) {
     return redPacket.detail.remainingCount || 0;
   }
-  
+
   return Math.max(0, (redPacket.count || 0) - (redPacket.got || 0));
 };
 
@@ -870,12 +871,12 @@ const getRedPacketTotal = (item) => {
   if (detail) {
     return detail.count || 0;
   }
-  
+
   const redPacket = parseRedPacketMessage(item.content);
   if (redPacket.detail) {
     return redPacket.detail.count || 0;
   }
-  
+
   return redPacket.count || 0;
 };
 
@@ -885,12 +886,12 @@ const getRedPacketAmount = (item) => {
   if (detail) {
     return detail.totalAmount || 0;
   }
-  
+
   const redPacket = parseRedPacketMessage(item.content);
   if (redPacket.detail) {
     return redPacket.detail.totalAmount || 0;
   }
-  
+
   return redPacket.money || 0;
 };
 
@@ -900,12 +901,12 @@ const getRedPacketName = (item) => {
   if (detail && detail.name) {
     return detail.name;
   }
-  
+
   const redPacket = parseRedPacketMessage(item.content);
   if (redPacket.detail && redPacket.detail.name) {
     return redPacket.detail.name;
   }
-  
+
   return redPacket.msg || "红包";
 };
 
@@ -918,7 +919,7 @@ const getGrabbedAmount = (item) => {
 const grabRedPacket = async (item) => {
   const redPacket = parseRedPacketMessage(item.content);
   const redPacketId = redPacket.redPacketId;
-  
+
   if (!redPacketId) {
     ElMessage.error("红包ID不存在");
     return;
@@ -931,12 +932,12 @@ const grabRedPacket = async (item) => {
   try {
     grabbingRedPackets.value.set(item.oId, true);
     const response = await chatApi.grabRedPacket(redPacketId);
-    
+
     if (response.code === 0 && response.data !== undefined) {
       const grabbedAmount = response.data;
       grabbedRedPackets.value.set(item.oId, grabbedAmount);
       ElMessage.success(`恭喜！抢到 ${grabbedAmount} 积分`);
-      
+
       // 重新加载红包详情以获取最新状态
       redPacketDetails.value.delete(item.oId);
       await loadRedPacketDetail(item);
@@ -997,7 +998,7 @@ const closeRedPacketModal = () => {
 const showRedPacketRecords = async (item) => {
   const redPacket = parseRedPacketMessage(item.content);
   const redPacketId = redPacket.redPacketId;
-  
+
   if (!redPacketId) {
     ElMessage.error("红包ID不存在");
     return;
@@ -1013,7 +1014,7 @@ const showRedPacketRecords = async (item) => {
     if (response.code === 0 && response.data) {
       // 处理记录数据，标识手气王
       const records = response.data.map(record => ({ ...record }));
-      
+
       // 找到手气王：金额最大，如果金额相同则时间最早
       if (records.length > 0) {
         // 按金额降序，时间升序排序来找到手气王
@@ -1027,11 +1028,11 @@ const showRedPacketRecords = async (item) => {
           const timeB = new Date(b.grabTime || 0).getTime();
           return timeA - timeB;
         });
-        
+
         // 第一个是手气王
         const luckyKing = sortedRecords[0];
         const maxAmount = luckyKing.amount || 0;
-        
+
         // 标记所有金额等于最大金额且时间最早的记录为手气王
         records.forEach(record => {
           if (record.amount === maxAmount) {
@@ -1043,7 +1044,7 @@ const showRedPacketRecords = async (item) => {
           }
         });
       }
-      
+
       // 按积分大小从大到小排序
       records.sort((a, b) => {
         const amountDiff = (b.amount || 0) - (a.amount || 0);
@@ -1055,7 +1056,7 @@ const showRedPacketRecords = async (item) => {
         const timeB = new Date(b.grabTime || 0).getTime();
         return timeA - timeB;
       });
-      
+
       redPacketRecords.value = records;
     } else {
       ElMessage.error(response.message || "获取抢购记录失败");
@@ -1187,10 +1188,10 @@ const msgContextMenuItems = ref([]);
 
 const canRevokeMessage = (item) => {
   const userRole = userStore.userInfo?.userRole;
-  const isAdmin = userRole === "管理员" || userRole === "OP";
+  const isAdmin = userRole === "admin";
   const isSelf = item.userName === userStore.userInfo?.userName;
 
-  // 如果是管理员或OP，可以撤回任何消息
+  // 如果是管理员，可以撤回任何消息
   if (isAdmin) {
     return true;
   }
@@ -1476,16 +1477,25 @@ const handleImageLoad = () => {
 };
 
 // 处理消息撤回
-const handleRevokeMessage = async (item) => {
-  try {
-    const response = await chatApi.revokeMessage(item.oId);
-    if (response.code === 0) {
-      ElMessage.success(response.msg || "撤回成功");
-    }
-  } catch (error) {
-    console.error("撤回消息失败:", error);
-    ElMessage.error("撤回失败");
+const handleRevokeMessage = (item) => {
+  const messageId = item.oId || item.id;
+  if (!messageId) {
+    ElMessage.error("消息ID不存在");
+    return;
   }
+
+  // 使用 WebSocket 发送撤回消息
+  const revokeData = JSON.stringify({
+    type: 2,
+    userId: -1,
+    data: {
+      type: 'userMessageRevoke',
+      content: messageId,
+    },
+  });
+
+  wsManager.send(revokeData, "chat-room");
+  ElMessage.info('消息已撤回');
 };
 const getBells = () => {
   const savedBells = utools.dbStorage.getItem("fishpi_bells") || [];
@@ -1504,7 +1514,7 @@ const checkBellsInMessage = (mainString, elementsArray) => {
 onMounted(() => {
   bells.value = getBells();
   scrollToBottom();
-  
+
   // 加载已有红包消息的详情
   props.messages.forEach(msg => {
     if (isRedPacketMessage(msg.content)) {
@@ -1514,10 +1524,10 @@ onMounted(() => {
 });
 
 const userContextMenuItems = computed(() => [
-  { label: "发送消息", action: "message", icon: "fas fa-comment-dots" },
+  // { label: "发送消息", action: "message", icon: "fas fa-comment-dots" },
   { label: "@TA", action: "at", icon: "fas fa-at" },
   { divider: true },
-  { label: "查看资料", action: "profile", icon: "fas fa-user" },
+  // { label: "查看资料", action: "profile", icon: "fas fa-user" },
   { label: "加入黑名单", action: "blacklist", icon: "fas fa-user-slash" },
 ]);
 

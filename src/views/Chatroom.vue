@@ -47,6 +47,9 @@ const messages = ref([]);
 const currentPage = ref(1);
 const isLoadingMore = ref(false);
 const hasMoreMessages = ref(true);
+// 跟踪连续多少页被黑名单过滤后没有有效消息
+const consecutiveEmptyPages = ref(0);
+const MAX_CONSECUTIVE_EMPTY_PAGES = 5; // 连续5页都没有有效消息时停止加载
 
 // 在线用户和话题 - 从store获取
 const onlineUsers = ref([]);
@@ -461,6 +464,47 @@ const messageHandlers = {
       };
     }
   },
+  userMessageRevoke: (data) => {
+    console.log("处理用户撤回消息:", data);
+    // 获取要撤回的消息ID
+    // 根据发送的消息格式 { type: 2, data: { type: 'userMessageRevoke', content: messageId } }
+    // 服务器可能返回相同的格式，所以优先使用 data.data.content
+    // 如果服务器转换了格式，也可能直接返回 data.data（字符串类型）
+    let messageId = null;
+    
+    if (data.data) {
+      // 如果 data.data 是对象且包含 content，使用 content
+      if (typeof data.data === 'object' && data.data.content) {
+        messageId = data.data.content;
+      } 
+      // 如果 data.data 是字符串，直接使用
+      else if (typeof data.data === 'string') {
+        messageId = data.data;
+      }
+    }
+    
+    // 如果没有找到消息ID，尝试使用 data.content
+    if (!messageId && data.content) {
+      messageId = data.content;
+    }
+    
+    if (!messageId) {
+      console.warn("撤回消息ID不存在:", data);
+      return;
+    }
+
+    // 从消息列表中过滤掉被撤回的消息
+    // 检查消息的 oId 或 id 是否匹配
+    const beforeLength = messages.value.length;
+    messages.value = messages.value.filter((msg) => {
+      return msg.oId !== messageId && msg.id !== messageId;
+    });
+    const afterLength = messages.value.length;
+    
+    if (beforeLength > afterLength) {
+      console.log(`已撤回消息，ID: ${messageId}，从 ${beforeLength} 条消息减少到 ${afterLength} 条`);
+    }
+  },
   redPacketStatus: (data) => {
     console.log("处理红包状态更新:", data);
     // 添加红包领取提示消息
@@ -589,6 +633,15 @@ const handleMessage = (data) => {
   }
   // console.log("接收到消息：", data);
 
+  // 检查是否是 userMessageRevoke 消息（可能是嵌套在 data.data.type 中）
+  if (data.data?.type === 'userMessageRevoke') {
+    const handler = messageHandlers.userMessageRevoke;
+    if (handler) {
+      handler(data);
+      return;
+    }
+  }
+
   // 根据消息类型调用相应的处理器
   const handler = messageHandlers[data.type];
 
@@ -657,6 +710,8 @@ const loadMessages = async (page = 1) => {
 
       if (page === 1) {
         messages.value = reversedMessages;
+        // 重置连续空页计数
+        resetConsecutiveEmptyPages();
         // 只在第一次加载时滚动到底部
         nextTick(() => {
           const messageList = document.querySelector(".message-list");
@@ -681,18 +736,42 @@ const loadMessages = async (page = 1) => {
       }
 
       // 检查是否还有更多消息
+      // 注意：判断是否还有更多消息应该基于服务器返回的原始数据（records.length），
+      // 而不是过滤后的数据（filteredMessages.length），因为黑名单过滤可能导致
+      // 当前页过滤后没有消息，但服务器端可能还有更多消息
       const totalPages = pageData?.pages;
       const pageSizeFromResponse =
         pageData?.size ?? DEFAULT_MESSAGE_PAGE_SIZE;
+      
+      // 如果过滤后没有有效消息，增加连续空页计数
+      if (filteredMessages.length === 0 && records.length > 0) {
+        consecutiveEmptyPages.value++;
+      } else if (filteredMessages.length > 0) {
+        // 如果有有效消息，重置计数器
+        consecutiveEmptyPages.value = 0;
+      }
+      
       if (
         typeof totalPages === "number" &&
         totalPages > 0
       ) {
+        // 如果有总页数信息，优先使用总页数判断
         hasMoreMessages.value = page < totalPages;
-      } else if (filteredMessages.length < pageSizeFromResponse) {
+        // 但如果连续太多页都没有有效消息，也停止加载
+        if (consecutiveEmptyPages.value >= MAX_CONSECUTIVE_EMPTY_PAGES) {
+          hasMoreMessages.value = false;
+        }
+      } else if (records.length < pageSizeFromResponse) {
+        // 使用原始 records.length 而不是 filteredMessages.length
         hasMoreMessages.value = false;
+      } else {
+        // 如果服务器返回了完整的一页数据，即使过滤后没有消息，也应该继续尝试加载
+        // 因为可能下一页有非黑名单的消息
+        // 但如果连续太多页都没有有效消息，停止加载
+        hasMoreMessages.value = consecutiveEmptyPages.value < MAX_CONSECUTIVE_EMPTY_PAGES;
       }
     } else {
+      // 服务器返回空数据，确实没有更多消息了
       hasMoreMessages.value = false;
     }
   } catch (error) {
@@ -707,6 +786,11 @@ const loadMessages = async (page = 1) => {
 const handleLoadMore = () => {
   currentPage.value++;
   loadMessages(currentPage.value);
+};
+
+// 重置连续空页计数（在重新加载第一页时调用）
+const resetConsecutiveEmptyPages = () => {
+  consecutiveEmptyPages.value = 0;
 };
 
 // 处理发送消息
@@ -931,6 +1015,8 @@ const handleAccountSwitch = async () => {
   messages.value = [];
   currentPage.value = 1;
   hasMoreMessages.value = true;
+  // 重置连续空页计数
+  resetConsecutiveEmptyPages();
   // 清除聊天室缓存
   chatroomStore.clearCache();
   // 重新连接并加载消息

@@ -46,13 +46,13 @@
             <i class="fas fa-fish"></i>
             摸鱼小窗
           </li>
-<!--          <li-->
-<!--            :class="{ active: activeGroup === 'blacklist' }"-->
-<!--            @click="activeGroup = 'blacklist'"-->
-<!--          >-->
-<!--            <i class="fas fa-user-slash"></i>-->
-<!--            黑名单-->
-<!--          </li>-->
+          <li
+            :class="{ active: activeGroup === 'blacklist' }"
+            @click="activeGroup = 'blacklist'"
+          >
+            <i class="fas fa-user-slash"></i>
+            黑名单
+          </li>
         </ul>
       </div>
       <!-- 右侧分组内容 -->

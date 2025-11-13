@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=360, initial-scale=1.0" />
     <title>摸鱼小窗</title>
-    <script src="js/lottie.min.js"></script>
+    <link rel="icon" href="fishpi.png" type="image/png" />
     <style>
       html,
       body {
@@ -87,7 +87,14 @@
       .logo-container {
         width: 40px;
         height: 40px;
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .logo-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
       }
       .content {
         display: flex;
@@ -138,20 +145,20 @@
         left: 50%;
         top: 30px;
         transform: translateX(-50%) translateY(-10px);
-        background: rgba(60, 120, 180, 0.7);
-        color: #e0e0e0;
-        padding: 6px 8px;
+        background: rgba(79, 135, 165, 0.85);
+        color: #ffffff;
+        padding: 6px 12px;
         border-radius: 12px;
         font-size: 13px;
         font-weight: 600;
         z-index: 9999;
-        box-shadow: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
         pointer-events: none;
         opacity: 0;
         transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        border: none;
-        backdrop-filter: blur(2px);
-        -webkit-backdrop-filter: blur(2px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         min-width: 80px;
         text-align: center;
         white-space: nowrap;
@@ -177,15 +184,17 @@
 
       #fishToast.combo {
         animation: comboShake 0.3s ease-in-out;
-        box-shadow: 0 6px 24px rgba(255, 107, 107, 0.6),
-          0 3px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 16px rgba(200, 120, 100, 0.35),
+          0 2px 8px rgba(0, 0, 0, 0.2);
       }
     </style>
   </head>
   <body>
     <div class="moyu-widget" id="moyuWidget">
       <div class="fish-icon" id="fishIcon" title="点我摸鱼">
-        <div class="logo-container" id="logo-animate"></div>
+        <div class="logo-container" id="logo-animate">
+          <img src="fishpi.png" alt="摸鱼图标" />
+        </div>
       </div>
       <div class="content">
         <div class="quote" id="quote">你加班我加班，老板年年换小三</div>
@@ -194,33 +203,8 @@
     </div>
 
     <div id="fishToast">摸鱼+1</div>
-    <script src="js/logo.js"></script>
     <script src="js/moyu-texts.js"></script>
     <script>
-      // 初始化lottie动画
-      let anim;
-
-      // 等待DOM加载完成后初始化动画
-      document.addEventListener("DOMContentLoaded", function () {
-        const params = {
-          container: document.getElementById("logo-animate"),
-          renderer: "svg",
-          loop: false,
-          autoplay: false,
-          animationData: logoData,
-        };
-
-        anim = lottie.loadAnimation(params);
-
-        // 初始播放动画
-        anim.goToAndPlay(27, true);
-
-        // 添加鼠标悬停事件
-        const fishIcon = document.getElementById("fishIcon");
-        fishIcon.addEventListener("mouseenter", () => {
-          anim.goToAndPlay(10, true);
-        });
-      });
 
       // 智能摸鱼系统
       const SmartMoYuSystem = {
@@ -871,28 +855,50 @@
         // 设置提示文本和样式
         let text;
         toast.classList.remove("combo");
+        
+        // 清除之前的内联样式，为新的样式做准备
+        toast.style.background = "";
+        toast.style.color = "";
+        toast.style.border = "";
+        toast.style.boxShadow = "";
+        toast.style.fontSize = "";
+        toast.style.fontWeight = "";
+        toast.style.transform = "";
 
         if (smartStatus && smartStatus.type === "achievement") {
-          // 显示成就
+          // 显示成就 - 使用柔和的琥珀色
           text = smartStatus.text;
-          toast.style.background = `linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #ffd700 100%)`;
-          toast.style.transform = `translateX(-50%) translateY(-10px) scale(1.2)`;
+          toast.style.background = `linear-gradient(135deg, rgba(200, 160, 100, 0.9) 0%, rgba(220, 180, 120, 0.9) 50%, rgba(200, 160, 100, 0.9) 100%)`;
+          toast.style.transform = `translateX(-50%) translateY(0) scale(1.1)`;
           toast.style.fontSize = `14px`;
-          toast.style.boxShadow = `0 6px 24px rgba(255, 215, 0, 0.6), 0 3px 12px rgba(0, 0, 0, 0.2)`;
+          toast.style.fontWeight = `700`;
+          toast.style.color = `#2a2a2a`;
+          toast.style.border = `1px solid rgba(255, 255, 255, 0.3)`;
+          toast.style.boxShadow = `0 4px 16px rgba(200, 160, 100, 0.4), 0 2px 8px rgba(0, 0, 0, 0.25)`;
         } else if (comboCount > 1) {
+          // 连击特效 - 使用柔和的橙红色
           text = MoYuTexts.getComboText(comboCount);
-          toast.style.background = `linear-gradient(135deg, #ff6b6b 0%, #ff8e53 50%, #ff6b9d 100%)`;
-          toast.style.transform = `translateX(-50%) translateY(-10px) scale(${Math.min(
-            1.3,
-            1 + comboCount * 0.06
+          toast.style.background = `linear-gradient(135deg, rgba(200, 130, 110, 0.9) 0%, rgba(220, 150, 130, 0.9) 50%, rgba(210, 140, 140, 0.9) 100%)`;
+          toast.style.transform = `translateX(-50%) translateY(0) scale(${Math.min(
+            1.15,
+            1 + comboCount * 0.03
           )})`;
-          toast.style.fontSize = `${Math.min(16, 13 + comboCount * 0.5)}px`;
+          toast.style.fontSize = `${Math.min(15, 13 + comboCount * 0.3)}px`;
+          toast.style.fontWeight = `700`;
+          toast.style.color = `#ffffff`;
+          toast.style.border = `1px solid rgba(255, 255, 255, 0.25)`;
+          toast.style.boxShadow = `0 4px 16px rgba(200, 120, 100, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2)`;
           toast.classList.add("combo");
         } else {
+          // 普通摸鱼提示 - 使用柔和的蓝色
           text = SmartMoYuSystem.getSmartFishText();
-          toast.style.background = `linear-gradient(135deg, #4fc3f7 0%, #29b6f6 50%, #81d4fa 100%)`;
-          toast.style.transform = `translateX(-50%) translateY(-10px) scale(1)`;
+          toast.style.background = `linear-gradient(135deg, rgba(100, 160, 200, 0.9) 0%, rgba(120, 180, 220, 0.9) 50%, rgba(140, 200, 240, 0.9) 100%)`;
+          toast.style.transform = `translateX(-50%) translateY(0) scale(1)`;
           toast.style.fontSize = `13px`;
+          toast.style.fontWeight = `600`;
+          toast.style.color = `#ffffff`;
+          toast.style.border = `1px solid rgba(255, 255, 255, 0.15)`;
+          toast.style.boxShadow = `0 2px 8px rgba(0, 0, 0, 0.25)`;
         }
 
         toast.textContent = text;
