@@ -75,6 +75,16 @@
                 handleLinkClick(e);
               }
             ">
+              <!-- 显示引用消息 -->
+              <div v-if="item.quotedMessage" class="quoted-message-preview">
+                <div class="quoted-message-header">
+                  <span class="quoted-message-author">{{ item.quotedMessage.sender?.name || '未知用户' }}</span>
+                </div>
+                <div class="quoted-message-content">
+                  <span v-if="!isImageInContent(item.quotedMessage.content)">{{ getQuotedMessageText(item.quotedMessage.content) }}</span>
+                  <span v-else class="quoted-image-indicator">[图片]</span>
+                </div>
+              </div>
               <div style="display: flex; align-items: flex-end">
                 <div class="message-text" v-if="isMusicMessage(item.content)">
                   <div class="music-card" @click="playMusic(parseMusicMessage(item.content))">
@@ -1476,6 +1486,29 @@ const handleImageLoad = () => {
   }
 };
 
+// 检查内容中是否包含图片
+const isImageInContent = (content) => {
+  if (!content || typeof content !== 'string') return false;
+  return /\<img[^>]+src=/.test(content) || /!\[.*?\]\(.*?\)/.test(content);
+};
+
+// 获取引用消息的文本内容
+const getQuotedMessageText = (content) => {
+  if (!content || typeof content !== 'string') return '';
+  try {
+    // 如果是HTML，提取文本
+    const temp = document.createElement('div');
+    temp.innerHTML = content;
+    const text = temp.innerText || temp.textContent || '';
+    const maxLength = 50; // 最大显示长度
+    return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+  } catch (error) {
+    // 如果不是HTML，直接返回文本
+    const maxLength = 50;
+    return content.length > maxLength ? content.slice(0, maxLength) + '...' : content;
+  }
+};
+
 // 处理消息撤回
 const handleRevokeMessage = (item) => {
   const messageId = item.oId || item.id;
@@ -2714,5 +2747,39 @@ const filterBlacklistMessages = () => {
 /* 添加弹幕消息的隐藏样式 */
 .barrager-message {
   display: none;
+}
+
+/* 引用消息预览样式 */
+.quoted-message-preview {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background-color: var(--hover-bg);
+  border-left: 3px solid var(--primary-color);
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.quoted-message-header {
+  margin-bottom: 4px;
+}
+
+.quoted-message-author {
+  color: var(--primary-color);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.quoted-message-content {
+  color: var(--sub-text-color);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quoted-image-indicator {
+  color: var(--sub-text-color);
+  font-style: italic;
 }
 </style>

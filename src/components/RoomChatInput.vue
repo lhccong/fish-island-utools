@@ -536,7 +536,20 @@
     if (message.value.trim()) {
       let content = message.value;
 
-      emit("send-message", content);
+      // 将引用消息数据一起发送
+      const messageData = {
+        content,
+        quotedMessage: quoteData.value ? {
+          id: quoteData.value.oId || quoteData.value.id,
+          content: quoteData.value.content || quoteData.value.md || "",
+          sender: {
+            name: quoteData.value.userName || "",
+            avatar: quoteData.value.userAvatarURL || "",
+          },
+        } : undefined,
+      };
+
+      emit("send-message", messageData);
       message.value = "";
       textareaRef.value.innerHTML = "";
       quotedTopic.value = "";

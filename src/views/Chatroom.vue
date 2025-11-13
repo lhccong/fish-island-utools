@@ -148,6 +148,8 @@ const transformRoomMessageVoToLegacy = (record) => {
     timestamp: message.timestamp || message.sentAt || message.sentTime || "",
     time: timestamp,
     isHistory: true,
+    // 添加引用消息字段
+    quotedMessage: message.quotedMessage,
   };
 
   if (senderInfo) {
@@ -199,6 +201,8 @@ const transformRealtimeChatMessage = (message) => {
     ...legacyMessage,
     type: "msg",
     isHistory: false,
+    // 添加引用消息字段
+    quotedMessage: message.quotedMessage,
     rawMessage: {
       type: "chat",
       data: message,
@@ -794,7 +798,11 @@ const resetConsecutiveEmptyPages = () => {
 };
 
 // 处理发送消息
-const handleSendMessage = async (content) => {
+const handleSendMessage = async (messageData) => {
+  // 兼容旧格式：如果传入的是字符串，转换为对象格式
+  const content = typeof messageData === 'string' ? messageData : messageData.content;
+  const quotedMessage = typeof messageData === 'object' ? messageData.quotedMessage : undefined;
+  
   if (!content || !content.trim()) return;
 
   try {
@@ -829,6 +837,8 @@ const handleSendMessage = async (content) => {
       timestamp: new Date(now).toISOString(),
       region: userIpInfo?.region || "未知地区",
       country: userIpInfo?.country || "未知国家",
+      // 添加引用消息字段
+      quotedMessage: quotedMessage,
     };
 
     // 由于服务端全局广播会跳过发送人，前端需要立即将消息插入本地列表
@@ -850,6 +860,8 @@ const handleSendMessage = async (content) => {
       timestamp: now,
       isHistory: false,
       isSelf: true,
+      // 添加引用消息字段
+      quotedMessage: quotedMessage,
     };
 
     messages.value = [...messages.value, localMessage];
