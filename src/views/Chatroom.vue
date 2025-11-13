@@ -915,19 +915,102 @@ const handleSelectImage = () => {
 const handleSendRedPacket = async (redPacketData) => {
   try {
     const { msg, money, count, type, gesture, recivers } = redPacketData;
-    const redPacketContent = JSON.stringify({
-      msg,
-      money,
+    
+    // 将红包类型从字符串转换为数字：random -> 1, average -> 2
+    const typeMap = {
+      random: 1,
+      average: 2,
+    };
+    const packetType = typeMap[type] || 1;
+    
+    // 调用创建红包API
+    const createResponse = await chatApi.createRedPacket({
       count,
-      type,
-      gesture,
-      recivers: recivers || [],
+      name: msg || undefined,
+      totalAmount: money,
+      type: packetType,
     });
+    
+    if (createResponse.code !== 0 || !createResponse.data) {
+      ElMessage.error(createResponse.message || "创建红包失败");
+      return;
+    }
+    
+    const redPacketId = createResponse.data;
+    
+    // 包装成 [redpacket]红包ID[/redpacket] 格式
+    const redPacketContent = `[redpacket]${redPacketId}[/redpacket]`;
 
-    const content = `[redpacket]${redPacketContent}[/redpacket]`;
-    await chatApi.sendMessage(content);
+    // 通过 WebSocket 发送红包消息
+    const currentUser = userStore.userInfo;
+    const userIpInfo = {}; // 如果有IP信息，可以从其他地方获取
+    const now = Date.now();
+    const userName = currentUser.userName || "游客";
+    const userNickname =
+      currentUser.userNickname || currentUser.userName || "游客";
+    const fallbackAvatar =
+      currentUser.userAvatar ||
+      "https://api.dicebear.com/7.x/avataaars/svg?seed=visitor";
+    
+    const message = {
+      id: `${now}`,
+      content: redPacketContent,
+      sender: {
+        id: String(currentUser.id),
+        name: userName,
+        avatar: fallbackAvatar,
+        level: currentUser.level || 1,
+        points: currentUser.points || 0,
+        isAdmin: currentUser.userRole === "admin",
+        isVip: currentUser.vip,
+        region: userIpInfo?.region || "未知地区",
+        country: userIpInfo?.country || "未知国家",
+        avatarFramerUrl: currentUser.avatarFramerUrl,
+        titleId: currentUser.titleId,
+        titleIdList: currentUser.titleIdList,
+      },
+      timestamp: new Date(now).toISOString(),
+      region: userIpInfo?.region || "未知地区",
+      country: userIpInfo?.country || "未知国家",
+    };
+
+    // 由于服务端全局广播会跳过发送人，前端需要立即将消息插入本地列表
+    const localMessage = {
+      oId: message.id,
+      content: redPacketContent,
+      md: redPacketContent,
+      userId: currentUser.id,
+      userName,
+      userNickname,
+      userAvatarURL: fallbackAvatar,
+      userAvatarURL20: fallbackAvatar,
+      userAvatarURL48: fallbackAvatar,
+      userAvatarURL210: fallbackAvatar,
+      userPoint: currentUser.points || 0,
+      userIntro: currentUser.userProfile || "",
+      client: import.meta.env.VITE_CLIENT || "",
+      time: now,
+      timestamp: now,
+      isHistory: false,
+      isSelf: true,
+    };
+
+    messages.value = [...messages.value, localMessage];
+
+    const messageData = JSON.stringify({
+      type: 2, // 聊天消息类型
+      userId: -1,
+      data: {
+        type: "chat",
+        content: {
+          message: message,
+        },
+      },
+    });
+    wsManager.send(messageData, "chat-room");
   } catch (error) {
     console.error("发送红包失败:", error);
+    ElMessage.error(error.message || "发送红包失败");
   }
 };
 

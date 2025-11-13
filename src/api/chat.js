@@ -63,6 +63,11 @@ export const chatApi = {
     });
   },
 
+  // 创建红包
+  createRedPacket(body) {
+    return request.post("/api/redpacket/create", body);
+  },
+
   // 获取红包详情
   getRedPacketDetail(redPacketId) {
     return request.get("/api/redpacket/detail", {
