@@ -7,17 +7,11 @@
       <i class="fas fa-times close-btn" @click="$emit('close')"></i>
     </div>
     <div class="emoji-picker-content">
-      <div v-if="currentTab === 'default'" class="emoji-grid">
-        <span
-          v-for="emoji in defaultEmotions"
-          :key="emoji"
-          class="emoji-item"
-          @click="selectEmoji(emoji)"
-        >
-          <img v-if="emoji.startsWith('http')" :src="emoji" :alt="emoji" />
-          <template v-else>{{ emoji }}</template>
-        </span>
+      <!-- Emoji Mart Picker -->
+      <div v-if="currentTab === 'default'" class="emoji-mart-container">
+        <div ref="emojiMartRef"></div>
       </div>
+      <!-- 我的收藏 -->
       <div v-else-if="currentTab === 'packs'" class="emoji-pack-grid-wrapper">
         <div class="emoji-pack-grid" @scroll="handlePacksScroll">
           <div class="emoji-pack-item upload-btn" @click="handleUpload">
@@ -48,6 +42,7 @@
           </div>
         </div>
       </div>
+      <!-- 在线搜索 -->
       <div
         v-else-if="currentTab === 'search'"
         class="emoji-picker-online-search"
@@ -126,7 +121,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from "vue";
+import { ref, onMounted, watch, computed, nextTick, onUnmounted } from "vue";
+import { Picker } from 'emoji-mart';
+import data from '@emoji-mart/data';
 import { userApi } from "../api/user";
 import { baiduImageAPI } from "../api/baidu";
 import { ElMessage } from "element-plus";
@@ -147,7 +144,8 @@ const tabs = [
 ];
 
 const currentTab = ref("default");
-const defaultEmotions = ref([]);
+const emojiMartRef = ref(null);
+const emojiPickerInstance = ref(null);
 const emotionPacks = ref([]);
 const searchKeyword = ref("");
 
@@ -176,7 +174,11 @@ watch(onlineSearchKeyword, (newVal, oldVal) => {
 });
 
 // 监听tab切换
-watch(currentTab, (newTab) => {
+watch(currentTab, async (newTab) => {
+  if (newTab === "default") {
+    await nextTick();
+    initEmojiMart();
+  }
   if (newTab === "packs") {
     fetchEmotionPacks();
   }
@@ -186,16 +188,42 @@ watch(currentTab, (newTab) => {
   }
 });
 
-// 获取默认表情
-const fetchDefaultEmotions = async () => {
-  try {
-    const res = await userApi.getDefaultEmotions();
-    if (res.code === 0) {
-      defaultEmotions.value = res.data.map((item) => Object.values(item)[0]);
-    }
-  } catch (error) {
-    console.error("获取默认表情失败:", error);
+// 监听 visible 变化
+watch(() => props.visible, async (newVal) => {
+  if (newVal && currentTab.value === 'default') {
+    await nextTick();
+    initEmojiMart();
   }
+});
+
+// 初始化 emoji-mart picker
+const initEmojiMart = async () => {
+  if (!emojiMartRef.value) return;
+  
+  // 销毁旧实例
+  if (emojiPickerInstance.value) {
+    emojiMartRef.value.innerHTML = '';
+  }
+  
+  // 创建新的 Picker 实例
+  const picker = new Picker({
+    data: data,
+    onEmojiSelect: (emoji) => {
+      // emoji 对象包含: { id, name, native, unified, keywords, shortcodes }
+      emit('select', emoji.native); // 发送原生 emoji 字符
+      emit('close');
+    },
+    theme: 'auto', // 自动主题
+    locale: 'zh', // 中文
+    previewPosition: 'none', // 不显示预览
+    skinTonePosition: 'search', // 肤色选择在搜索栏
+    set: 'native', // 使用原生 emoji
+    perLine: 7, // 每行显示9个
+    maxFrequentRows: 2, // 最近使用显示2行
+  });
+  
+  emojiMartRef.value.appendChild(picker);
+  emojiPickerInstance.value = picker;
 };
 
 // 获取表情包列表
@@ -268,12 +296,6 @@ const filteredEmotionPacks = computed(() => {
     pack.cover.includes(searchKeyword.value.trim())
   );
 });
-
-// 选择表情
-const selectEmoji = (emoji) => {
-  emit("select", emoji);
-  emit("close");
-};
 
 // 选择表情包
 const selectEmotionPack = (pack) => {
@@ -417,9 +439,20 @@ const handlePacksScroll = (e) => {
   }
 };
 
-onMounted(() => {
-  fetchDefaultEmotions();
+onMounted(async () => {
+  if (props.visible && currentTab.value === 'default') {
+    await nextTick();
+    initEmojiMart();
+  }
   fetchEmotionPacks();
+});
+
+onUnmounted(() => {
+  // 清理 emoji picker 实例
+  if (emojiPickerInstance.value && emojiMartRef.value) {
+    emojiMartRef.value.innerHTML = '';
+    emojiPickerInstance.value = null;
+  }
 });
 </script>
 
@@ -443,7 +476,7 @@ onMounted(() => {
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  max-height: 400px;
+  max-height: 380px;
   overflow: hidden;
 }
 .emoji-picker-header {
@@ -478,11 +511,32 @@ onMounted(() => {
   overflow-x: hidden;
   flex: 1;
   min-height: 0;
-  max-height: 235px;
+  max-height: 320px;
   width: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+}
+
+/* Emoji Mart 容器样式 */
+.emoji-mart-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.emoji-mart-container :deep(em-emoji-picker) {
+  width: 100% !important;
+  height: 280px !important;
+  border: none !important;
+}
+
+/* 适配暗色主题 */
+.emoji-mart-container :deep(em-emoji-picker) {
+  --rgb-background: var(--card-bg);
+  --rgb-input: var(--card-bg);
+  --rgb-color: var(--text-color);
+  --rgb-accent: var(--primary-color);
 }
 .emoji-picker-footer {
   padding: 8px;
