@@ -1,70 +1,97 @@
 <template>
   <div class="login-container">
-    <div class="login-content">
-      <!-- 左侧登录框 -->
-      <div class="login-box">
-        <div class="login-header">
-          <h2>登录</h2>
-          <p class="login-subtitle">欢迎回来，请登录您的账号</p>
+    <!-- 左侧欢迎区域 -->
+    <div class="login-left">
+      <div class="welcome-content">
+        <h2 class="welcome-title">Hi～欢迎来到摸鱼岛！</h2>
+        <p class="welcome-text">
+            如果你也是奋斗在一线、热爱工作的苦逼青年，那就快加入我们的友好大家庭吧！❤️
+        </p>
+        <p class="welcome-text">
+          在这里，我们为你准备了 聊天室、每日热榜、还有满满生活感的帖子📝。这里的第一守则就是 「友善」🌈，你可以完全放开自己，和鱼油们畅所欲言💌，邂逅各行各业的搬砖人。
+        </p>
+        <p class="welcome-text">
+          日常碎碎念🫖、闲聊八卦🗣️、生活小确幸、吐槽抱怨、各种提问、技术交流、读书分享、游戏竞技🎮、兴趣爱好🎨……在摸鱼岛 统统都能聊！
+        </p>
+      </div>
+    </div>
+
+    <!-- 右侧登录区域 -->
+    <div class="login-right">
+      <div class="login-content">
+        <!-- 应用图标 -->
+        <div class="app-icon-wrapper">
+          <img src="/fishpi.png" alt="FishPi" class="app-icon" />
         </div>
-        <div class="form-content">
-          <div class="form-item">
-            <div class="input-wrapper">
-              <i class="fas fa-user"></i>
+
+        <!-- 登录表单 -->
+        <div class="login-form-container">
+          <div class="form-bubble">
+            <!-- 账号输入 -->
+            <div class="form-item">
               <input
                 v-model="form.username"
                 type="text"
-                placeholder="用户名/邮箱"
+                placeholder="请输入账号/邮箱"
+                class="oval-input"
                 @keyup.enter="handleLogin"
               />
             </div>
-          </div>
-          <div class="form-item">
-            <div class="input-wrapper">
-              <i class="fas fa-lock"></i>
+
+            <!-- 密码输入 -->
+            <div class="form-item">
               <input
                 v-model="form.password"
                 type="password"
-                placeholder="密码"
+                placeholder="请输入密码"
+                class="oval-input"
                 @keyup.enter="handleLogin"
               />
             </div>
-          </div>
-          <div class="form-item">
-            <button class="login-btn" :disabled="loading" @click="handleLogin">
-              {{ loading ? "登录中..." : "登录" }}
-            </button>
-          </div>
-          <div class="form-footer">
-            <a href="#" class="footer-link" @click.prevent="goToRegister">
-              <i class="fas fa-user-plus"></i>
-              注册账号
-            </a>
-            <span class="divider">|</span>
-            <a href="#" class="footer-link" @click.prevent="goToForgetPwd">
-              <i class="fas fa-key"></i>
-              忘记密码
-            </a>
-          </div>
-        </div>
-      </div>
 
-      <!-- 右侧欢迎文案 -->
-      <div class="welcome-section">
-        <h2>Hi，鱼油，欢迎来到摸鱼岛！</h2>
-        <p class="welcome-subtitle">
-          如果你也是奋斗在一线、热爱工作的苦逼青年，期待与众多鱼油聚集起来，那就加入友好的摸鱼岛社区吧！
-          ❤️
-        </p>
-        <div class="welcome-text">
-          <p>
-            在这里有为你准备的聊天室、鱼游、充满生活感的帖子，只要来到摸鱼岛，你就是我们的家庭成员～这里以「友善」为第一守则，你可以完全放开自己，和鱼油们畅所欲言，邂逅各行各业的搬砖人，参与摸鱼岛有趣的活动
-            :)
-          </p>
-          <p>
-            日常、闲聊、生活、吐槽、提问、技术、读书、游戏、兴趣 ......
-            都可以在摸鱼岛中讨论。
-          </p>
+            <!-- 提交按钮 -->
+            <div class="form-item">
+              <button class="submit-btn" :disabled="loading" @click="handleLogin">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M9 18L15 12L9 6"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <!-- 注册链接 -->
+            <div class="register-wrapper">
+              <span class="register-text">还没有账号？</span>
+              <button class="register-link" @click.prevent="goToRegister">
+                立即注册
+              </button>
+            </div>
+
+            <!-- 协议复选框 -->
+            <div class="agreement-wrapper">
+              <label class="agreement-label">
+                <input
+                  v-model="agreed"
+                  type="checkbox"
+                  class="agreement-checkbox"
+                />
+                <span class="agreement-text">
+                  登录即同意<button class="agreement-link" @click.prevent="goToAgreement">《用户协议》</button>和<button class="agreement-link" @click.prevent="goToPrivacy">《隐私政策》</button>
+                </span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -75,26 +102,25 @@
 import { ref, reactive } from "vue";
 import { userApi } from "../api";
 import { request } from "../api";
-import MD5 from "crypto-js/md5";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
 const loading = ref(false);
-const showMfa = ref(true); // 默认显示两步验证输入框
+const agreed = ref(true);
 
 const form = reactive({
   username: "",
   password: "",
 });
 
-// MD5 加密
-const md5 = (text) => {
-  return MD5(text).toString();
-};
-
 const handleLogin = async () => {
+  if (!agreed.value) {
+    utools.showNotification("请同意用户协议和隐私政策");
+    return;
+  }
+
   if (!form.username || !form.password) {
-    utools.showNotification("请输入用户名和密码");
+    utools.showNotification("请输入账号和密码");
     return;
   }
 
@@ -113,13 +139,11 @@ const handleLogin = async () => {
       res = await userApi.userLogin(form.username, form.password);
     }
 
-    // 检查响应
     if (res.code === 0 && res.data) {
       const loginData = res.data;
 
       // 保存 token 信息
       if (loginData.saTokenInfo) {
-        // 使用 request 的 setToken 方法保存 token
         request.setToken(
           loginData.saTokenInfo.tokenName,
           loginData.saTokenInfo.tokenValue
@@ -136,14 +160,12 @@ const handleLogin = async () => {
       );
 
       if (existingAccountIndex === -1) {
-        // 新账号，添加到列表
         accounts.push({
           ...loginData,
           tokenName: loginData.saTokenInfo?.tokenName,
           tokenValue: loginData.saTokenInfo?.tokenValue,
         });
       } else {
-        // 更新现有账号信息
         accounts[existingAccountIndex] = {
           ...loginData,
           tokenName: loginData.saTokenInfo?.tokenName,
@@ -152,17 +174,15 @@ const handleLogin = async () => {
       }
       utools.dbStorage.setItem("fishpi_accounts", accounts);
 
-      // 显示成功提示
       utools.showNotification("登录成功");
-
-      // 触发登录成功事件
       window.dispatchEvent(new CustomEvent("fishpi:login-success"));
     } else {
       utools.showNotification(res.message || "登录失败");
     }
   } catch (error) {
     if (error.message && error.message.includes("两步验证")) {
-      showMfa.value = true;
+      // 处理两步验证的情况
+      utools.showNotification(error.message);
     } else {
       utools.showNotification(error.message || "登录失败");
     }
@@ -173,11 +193,16 @@ const handleLogin = async () => {
 
 // 跳转到注册页
 const goToRegister = () => {
+  utools.shellOpenExternal("https://yucoder.cn");
+};
+
+// 跳转到用户协议
+const goToAgreement = () => {
   utools.shellOpenExternal("https://yucoder.cn/index");
 };
 
-// 跳转到忘记密码页面
-const goToForgetPwd = () => {
+// 跳转到隐私政策
+const goToPrivacy = () => {
   utools.shellOpenExternal("https://yucoder.cn/index");
 };
 </script>
@@ -185,169 +210,340 @@ const goToForgetPwd = () => {
 <style scoped>
 .login-container {
   display: flex;
-  justify-content: center;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 左侧欢迎区域 */
+.login-left {
+  flex: 0 0 50%;
+  background: #fff;
+  display: flex;
   align-items: center;
-  min-height: 100vh;
-  background: var(--background-color);
-  position: relative;
-  overflow: hidden;
-}
-
-.login-content {
-  display: flex;
-  width: 900px;
-  background: var(--card-bg);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  border: 1px solid var(--border-color);
-}
-
-.login-box {
-  width: 380px;
-  background: var(--card-bg);
-  padding: 40px;
-  border-right: 1px solid var(--border-color);
-}
-
-.welcome-section {
-  flex: 1;
-  padding: 40px;
-  background: var(--hover-bg);
-  display: flex;
-  flex-direction: column;
   justify-content: center;
+  padding: 40px;
 }
 
-.welcome-section h2 {
-  margin: 0 0 20px;
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--text-color);
+/* 应用图标 */
+.app-icon-wrapper {
+  margin-bottom: 24px;
 }
 
-.welcome-subtitle {
-  margin: 0 0 24px;
-  font-size: 16px;
-  color: var(--sub-text-color);
-  line-height: 1.6;
+.app-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  padding: 6px;
+  object-fit: contain;
 }
 
-.welcome-text {
-  color: var(--sub-text-color);
-  font-size: 14px;
-  line-height: 1.8;
-}
-
-.welcome-text p {
-  margin: 0 0 16px;
-}
-
-.welcome-text p:last-child {
-  margin-bottom: 0;
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.login-header h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.login-subtitle {
-  margin: 8px 0 0;
-  font-size: 14px;
-  color: var(--sub-text-color);
-}
-
-.form-content {
+/* 登录表单容器 */
+.login-form-container {
   width: 100%;
+}
+
+.form-bubble {
+  background: #fff;
+  border-radius: 24px;
+  padding: 36px 32px 32px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  position: relative;
 }
 
 .form-item {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
-.input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-wrapper i {
-  position: absolute;
-  left: 12px;
-  color: var(--sub-text-color);
-  font-size: 16px;
-  transition: color 0.3s ease;
-}
-
-input {
+/* 椭圆形输入框 */
+.oval-input {
   width: 100%;
-  padding: 10px 10px 10px 35px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  padding: 12px 18px;
+  border: 2px solid #e5e7eb;
+  border-radius: 50px;
   font-size: 14px;
+  background: #fff;
+  color: #333;
   transition: all 0.3s ease;
-  background: var(--background-color);
-  color: var(--text-color);
-}
-
-input:focus {
-  border-color: var(--primary-color);
-  background: var(--card-bg);
-  box-shadow: none;
   outline: none;
 }
 
-.login-btn {
-  width: 100%;
-  padding: 10px;
-  background: var(--text-color);
-  color: var(--background-color);
-  border: none;
-  border-radius: 4px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.oval-input::placeholder {
+  color: #999;
 }
 
-.login-btn:disabled {
-  background: var(--border-color);
-  cursor: not-allowed;
-  color: var(--sub-text-color);
+.oval-input:focus {
+  border-color: #666;
+  box-shadow: 0 0 0 3px rgba(102, 102, 102, 0.1);
 }
 
-.form-footer {
+/* 注册链接区域 */
+.register-wrapper {
   text-align: center;
-  margin-top: 24px;
+  margin-top: 4px;
+  margin-bottom: 16px;
   font-size: 13px;
 }
 
-.footer-link {
-  color: var(--sub-text-color);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.register-text {
+  color: #666;
+}
+
+.register-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 13px;
+  margin-left: 4px;
   transition: color 0.3s ease;
-  padding: 2px 4px;
-  border-radius: 4px;
 }
 
-.footer-link:hover {
-  color: var(--primary-color);
+.register-link:hover {
+  color: #333;
 }
 
-.divider {
-  margin: 0 10px;
-  color: var(--border-color);
-  font-weight: 400;
+/* 提交按钮 */
+.submit-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #666;
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0 auto;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.submit-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #555;
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 协议区域 */
+.agreement-wrapper {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.agreement-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.agreement-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #e5e7eb;
+  cursor: pointer;
+  appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.agreement-checkbox:checked {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.agreement-checkbox:checked::after {
+  content: "✓";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.agreement-text {
+  line-height: 1.5;
+}
+
+.agreement-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  transition: color 0.3s ease;
+}
+
+.agreement-link:hover {
+  color: #333;
+}
+
+/* 右侧登录区域 */
+.login-right {
+  flex: 0 0 50%;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.login-content {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.welcome-content {
+  width: 100%;
+  max-width: 600px;
+}
+
+.welcome-title {
+  font-size: 32px;
+  font-weight: 500;
+  color: #333;
+  margin: 0 0 32px 0;
+  line-height: 1.4;
+}
+
+.welcome-text {
+  font-size: 16px;
+  color: #666;
+  line-height: 1.8;
+  margin: 0 0 24px 0;
+}
+
+.welcome-text:last-child {
+  margin-bottom: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .login-container {
+    flex-direction: column;
+  }
+
+  .login-left,
+  .login-right {
+    flex: 1;
+    width: 100%;
+  }
+
+  .login-content,
+  .welcome-content {
+    max-width: 100%;
+  }
+
+  .welcome-title {
+    font-size: 28px;
+    margin-bottom: 24px;
+  }
+
+  .welcome-text {
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-left,
+  .login-right {
+    padding: 24px;
+  }
+
+  .app-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 14px;
+  }
+
+  .app-icon-wrapper {
+    margin-bottom: 20px;
+  }
+
+  .form-bubble {
+    padding: 28px 24px 24px;
+    border-radius: 20px;
+  }
+
+  .form-item {
+    margin-bottom: 14px;
+  }
+
+  .oval-input {
+    padding: 11px 16px;
+    font-size: 13px;
+  }
+
+  .submit-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .submit-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .agreement-label {
+    font-size: 11px;
+    gap: 5px;
+  }
+
+  .agreement-checkbox {
+    width: 14px;
+    height: 14px;
+  }
+
+  .register-wrapper {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+
+  .agreement-wrapper {
+    margin-top: 16px;
+  }
+
+  .welcome-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+
+  .welcome-text {
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
 }
 </style>
