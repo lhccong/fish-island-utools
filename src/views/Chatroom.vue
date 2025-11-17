@@ -1216,6 +1216,23 @@ const handleBlacklistUpdated = (event) => {
   }
 };
 
+// 处理页面可见性变化：从后台恢复前台时重新加载数据
+const handleVisibilityChange = () => {
+  // 当页面从隐藏变为可见时，重新加载消息数据
+  if (document.visibilityState === "visible") {
+    console.log("页面从后台恢复前台，重新加载聊天室数据");
+    // 清空消息列表
+    messages.value = [];
+    // 重置分页
+    currentPage.value = 1;
+    hasMoreMessages.value = true;
+    // 重置连续空页计数
+    resetConsecutiveEmptyPages();
+    // 重新加载消息
+    loadMessages(1);
+  }
+};
+
 const getBells = () => {
   const savedBells = utools.dbStorage.getItem("fishpi_bells") || [];
   return savedBells;
@@ -1624,6 +1641,9 @@ onMounted(() => {
 
   // 监听黑名单更新事件
   window.addEventListener("fishpi:blacklist-updated", handleBlacklistUpdated);
+
+  // 监听页面可见性变化
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 });
 
 onUnmounted(() => {
@@ -1638,6 +1658,7 @@ onUnmounted(() => {
     "fishpi:blacklist-updated",
     handleBlacklistUpdated
   );
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
 });
 </script>
 
