@@ -229,7 +229,8 @@ const initEmojiMart = async () => {
 // 获取表情包列表
 const fetchEmotionPacks = async (isLoadMore = false) => {
   if (isLoadingPacks.value) return;
-  if (!isLoadMore && !hasMore.value) return;
+  // 如果是加载更多但已经没有更多数据，直接返回
+  if (isLoadMore && !hasMore.value) return;
   
   isLoadingPacks.value = true;
   try {
@@ -240,9 +241,13 @@ const fetchEmotionPacks = async (isLoadMore = false) => {
       hasMore.value = true;
     }
     
+    // 确保 currentPage 是数字类型
+    const pageNum = Number(currentPage.value) || 1;
+    const size = Number(pageSize.value) || 50;
+    
     const res = await userApi.listEmoticonFavourByPage({
-      current: currentPage.value,
-      pageSize: pageSize.value,
+      current: pageNum,
+      pageSize: size,
       sortField: "createTime",
       sortOrder: "desc",
     });
@@ -262,12 +267,12 @@ const fetchEmotionPacks = async (isLoadMore = false) => {
       }
       
       // 检查是否还有更多数据
-      const total = res.data.total || 0;
-      const current = res.data.current || 1;
-      const pages = res.data.pages || 1;
+      const total = Number(res.data.total) || 0;
+      const current = Number(res.data.current) || 1;
+      const pages = Number(res.data.pages) || 1;
       
-      // 判断是否还有更多数据：当前页小于总页数，或者当前加载的数据少于总数
-      hasMore.value = current < pages && emotionPacks.value.length < total;
+      // 判断是否还有更多数据：当前页小于总页数
+      hasMore.value = current < pages;
       
       // 如果有更多数据，准备加载下一页
       if (hasMore.value) {

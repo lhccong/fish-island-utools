@@ -371,8 +371,8 @@ export const userApi = {
    */
   listEmoticonFavourByPage(params = {}) {
     return request.post("/api/emoticon_favour/list/page", {
-      current: params.current || 1,
-      pageSize: params.pageSize || 20,
+      current: Number(params.current) || 1,
+      pageSize: Number(params.pageSize) || 20,
       sortField: params.sortField,
       sortOrder: params.sortOrder,
     });
