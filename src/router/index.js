@@ -13,6 +13,7 @@ import PrivateChat from "../views/PrivateChat.vue";
 import UserProfile from "../views/UserProfile.vue";
 import Games from "../views/Games.vue";
 import HotPosts from "../views/HotPosts.vue";
+import Reader from "../views/Reader/index.vue";
 
 const routes = [
   {
@@ -62,6 +63,11 @@ const routes = [
         path: "/settings",
         name: "Settings",
         component: Settings,
+      },
+      {
+        path: "/reader",
+        name: "Reader",
+        component: Reader,
       },
       {
         path: "/hot-posts",
