@@ -721,8 +721,25 @@ const handleCheckin = async () => {
   height: 64px;
   object-fit: contain;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: transparent;
+  border: none;
+  animation: pet-avatar-breathe 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes pet-avatar-breathe {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-4px) scale(1.04);
+  }
+  60% {
+    transform: translateY(-4px) scale(1.04);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 
 .pet-info-block {
