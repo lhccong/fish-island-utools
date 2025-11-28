@@ -615,43 +615,6 @@ const handleCheckin = async () => {
   margin: 0;
 }
 
-.liveness-tag {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  background: #fee2e2;
-  color: #ef4444;
-}
-.liveness-tag.active {
-  background: #dcfce7;
-  color: #22c55e;
-}
-.liveness-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.progress-bar {
-  flex: 1;
-  height: 6px;
-  background: #eef0f5;
-  border-radius: 3px;
-  overflow: hidden;
-}
-.progress {
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-.progress-value {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-color, #1a1f36);
-}
-.time-display {
-  text-align: center;
-}
 
 .sign-card {
   display: flex;
@@ -963,24 +926,7 @@ const handleCheckin = async () => {
   }
 }
 
-.reward-dialog-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
 
-.reward-icon {
-  font-size: 3rem;
-  animation: bounce 0.5s ease;
-}
-
-.reward-message {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color, #1a1f36);
-  text-align: center;
-}
 
 @keyframes bounce {
   0%,
@@ -992,20 +938,6 @@ const handleCheckin = async () => {
   }
 }
 
-.help-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background-color: #e5e7eb;
-  color: #6b7280;
-  font-size: 12px;
-  margin-left: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
 
 .help-icon:hover {
   background-color: #d1d5db;

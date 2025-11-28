@@ -1,8 +1,8 @@
-import { request } from "./request";
+import {request} from "./request";
 
 // 检查文件大小是否不超过 1MB
 const checkFileSize = (file) => {
-  const ONE_MB = 1 * 1024 * 1024;
+  const ONE_MB = 1024 * 1024;
   return file && file.size <= ONE_MB;
 };
 
@@ -42,11 +42,10 @@ const compressImage = async (file) => {
     );
     if (!blob) continue;
     if (blob.size <= 1024 * 1024 || q === qualityCandidates[qualityCandidates.length - 1]) {
-      const compressedFile = new File([blob], file.name.replace(/\.(png|jpeg|jpg|webp)$/i, ".jpg"), {
-        type: "image/jpeg",
-        lastModified: Date.now(),
+        return new File([blob], file.name.replace(/\.(png|jpeg|jpg|webp)$/i, ".jpg"), {
+          type: "image/jpeg",
+          lastModified: Date.now(),
       });
-      return compressedFile;
     }
   }
   return file;
@@ -165,6 +164,7 @@ export const userApi = {
   /**
    * 抚摸宠物，消耗 3 积分并提升心情，1 小时冷却
    * @param {number|string} petId
+   * @param config
    */
   patPet(petId, config = {}) {
     if (petId === undefined || petId === null || petId === "") {
@@ -186,6 +186,7 @@ export const userApi = {
   /**
    * 喂食宠物，消耗 5 积分，提升饱腹和心情，1 小时冷却
    * @param {number|string} petId
+   * @param config
    */
   feedPet(petId, config = {}) {
     if (petId === undefined || petId === null || petId === "") {
