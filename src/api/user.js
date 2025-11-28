@@ -156,6 +156,53 @@ export const userApi = {
   async getCurrentUser(options) {
     return request.get("/api/user/get/login", options || {});
   },
+
+  // 获取宠物详情
+  getPetDetail(options) {
+    return request.get("/api/pet/my/get", options || {});
+  },
+
+  /**
+   * 抚摸宠物，消耗 3 积分并提升心情，1 小时冷却
+   * @param {number|string} petId
+   */
+  patPet(petId, config = {}) {
+    if (petId === undefined || petId === null || petId === "") {
+      return Promise.reject(new Error("宠物 ID 不能为空"));
+    }
+    return request.post(
+      "/api/pet/pat",
+      {},
+      {
+        ...config,
+        params: {
+          ...(config.params || {}),
+          petId,
+        },
+      }
+    );
+  },
+
+  /**
+   * 喂食宠物，消耗 5 积分，提升饱腹和心情，1 小时冷却
+   * @param {number|string} petId
+   */
+  feedPet(petId, config = {}) {
+    if (petId === undefined || petId === null || petId === "") {
+      return Promise.reject(new Error("宠物 ID 不能为空"));
+    }
+    return request.post(
+      "/api/pet/feed",
+      {},
+      {
+        ...config,
+        params: {
+          ...(config.params || {}),
+          petId,
+        },
+      }
+    );
+  },
   // 获取用户资料
   async getUserProfile(identifier) {
     const shouldUseIdLookup =
