@@ -804,16 +804,7 @@ const handleCheckin = async () => {
   opacity: 0.75;
 }
 
-.time-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-color, #1a1f36);
-}
-.time-unit {
-  font-size: 0.875rem;
-  color: var(--sub-text-color, #697386);
-  margin-left: 0.25rem;
-}
+
 .reward-button {
   width: 100%;
   display: flex;
@@ -854,31 +845,15 @@ const handleCheckin = async () => {
   font-size: 1rem;
 }
 @media (max-width: 1024px) {
-  .cards-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .row-cards {
-    flex-direction: column;
-    gap: 1rem;
-  }
+
 }
 @media (max-width: 600px) {
   .dashboard {
     padding: 1rem;
   }
-  .cards-grid {
-    grid-template-columns: 1fr;
-  }
+
 }
-.single-row {
-  grid-column: 1/-1;
-  margin-bottom: 1rem;
-}
-.row-cards {
-  display: flex;
-  gap: 1rem;
-  width: 100%;
-}
+
 .row-cards > .data-card {
   flex: 1 1 0;
   min-width: 0;
@@ -902,32 +877,6 @@ const handleCheckin = async () => {
   }
 }
 
-.reward-dialog {
-  :deep(.el-dialog__header) {
-    text-align: center;
-    padding: 20px;
-    margin: 0;
-    border-bottom: 1px solid #f0f0f0;
-  }
-
-  :deep(.el-dialog__title) {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--text-color, #1a1f36);
-  }
-
-  :deep(.el-dialog__body) {
-    padding: 30px 20px;
-  }
-
-  :deep(.el-dialog__footer) {
-    padding: 20px;
-    border-top: 1px solid #f0f0f0;
-  }
-}
-
-
-
 @keyframes bounce {
   0%,
   100% {
@@ -938,9 +887,4 @@ const handleCheckin = async () => {
   }
 }
 
-
-.help-icon:hover {
-  background-color: #d1d5db;
-  color: #4b5563;
-}
 </style>
