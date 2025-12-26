@@ -200,13 +200,38 @@ const damageDisplay = ref({
   isDodge: false,
 });
 
-// 初始化血量
+// 初始化血量和重置战斗状态
 watch(
   () => props.battleInfo,
   (newVal) => {
     if (newVal) {
+      // 重置血量
       currentPetHealth.value = newVal.petInfo?.health || 0;
       currentBossHealth.value = newVal.bossInfo?.currentHealth || newVal.bossInfo?.maxHealth || 0;
+      
+      // 重置战斗状态
+      battleState.value = "idle";
+      battleLoading.value = false;
+      battleResults.value = [];
+      currentRound.value = 0;
+      isSkipping.value = false;
+      
+      // 重置动画状态
+      isPetAttacking.value = false;
+      isBossAttacking.value = false;
+      isPetHit.value = false;
+      isBossHit.value = false;
+      
+      // 重置伤害显示
+      damageDisplay.value = {
+        show: false,
+        value: 0,
+        type: "",
+        style: {},
+        isCritical: false,
+        isCombo: false,
+        isDodge: false,
+      };
     }
   },
   { immediate: true }
@@ -586,6 +611,8 @@ const sleep = (ms) => {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(5px);
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .scene-avatar img {
@@ -596,23 +623,21 @@ const sleep = (ms) => {
 
 .player-character {
   animation: float 3s ease-in-out infinite;
-  transition: transform 0.3s ease;
+  will-change: transform;
 }
 
 .boss-character {
   animation: float 3s ease-in-out infinite;
   animation-delay: 1.5s;
-  transition: transform 0.3s ease;
+  will-change: transform;
 }
 
 .player-character.attacking {
-  animation: none;
-  transform: translateX(50px) scale(1.1);
+  animation: petAttack 0.3s ease forwards;
 }
 
 .boss-character.attacking {
-  animation: none;
-  transform: translateX(-50px) scale(1.1);
+  animation: bossAttack 0.3s ease forwards;
 }
 
 .player-character.hit {
@@ -626,10 +651,34 @@ const sleep = (ms) => {
 @keyframes float {
   0%,
   100% {
-    transform: translateY(0px);
+    transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translateY(-20px);
+    transform: translate3d(0, -20px, 0);
+  }
+}
+
+@keyframes petAttack {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(50px, -10px, 0) scale(1.1);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes bossAttack {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-50px, -10px, 0) scale(1.1);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
