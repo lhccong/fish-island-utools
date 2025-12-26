@@ -162,6 +162,7 @@ const navItems = [
   { path: "/hot-posts", name: "帖子热榜", icon: "fas fa-fire" },
   { path: "/chatroom", name: "摸鱼室", icon: "fas fa-comments" },
   { path: "/reader", name: "摸鱼阅读", icon: "fas fa-book-reader" },
+  { path: "/boss-battle", name: "宠物对战", icon: "fas fa-dragon" },
   // { path: "/private-chat", name: "康康私信", icon: "fas fa-envelope" },
   // { path: "/posts", name: "康康帖子", icon: "fas fa-book-reader" },
   // { path: "/moon", name: "清风明月", icon: "fas fa-moon" },
