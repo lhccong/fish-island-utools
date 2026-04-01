@@ -1,13 +1,23 @@
 <template>
   <div class="sidebar-container">
     <div class="sidebar-section topic-section">
-      <h4>
-        当前话题
-        <i class="fas fa-edit edit-icon" @click="showEditDialog"></i>
-      </h4>
-      <p class="topic-text" @click="handleTopicClick">
-        {{ currentTopic || "暂无话题" }}
-      </p>
+      <div class="vote-entry" @click="openVoteListDialog">
+        <div class="vote-entry-main">
+          <span class="vote-entry-title">活跃投票列表 ({{ voteList.length }}个)</span>
+        </div>
+      </div>
+      <div class="vote-entry-actions">
+        <span class="icon-tooltip" title="创建投票">
+          <button class="icon-btn create-btn" aria-label="创建投票" @click.stop="openCreateDialog">
+            <i class="fas fa-plus edit-icon"></i>
+          </button>
+        </span>
+        <span class="icon-tooltip" title="刷新投票">
+          <button class="icon-btn refresh-btn" aria-label="刷新投票" :disabled="votesLoading" @click.stop="loadVotes">
+            <i class="fas fa-sync-alt edit-icon" :class="{ spinning: votesLoading }"></i>
+          </button>
+        </span>
+      </div>
     </div>
     <div class="sidebar-section online-users-section">
       <h4>在线用户 ({{ onlineUsers.length }})</h4>
@@ -27,21 +37,142 @@
         </li>
       </ul>
     </div>
-
-    <!-- Topic Edit Dialog -->
-    <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
+    <div v-if="showCreateDialog" class="dialog-overlay" @click="closeCreateDialog">
       <div class="dialog-content" @click.stop>
-        <h3>修改话题</h3>
-        <div class="dialog-info">
-          <p>修改话题需要16积分，将自动从账户中扣除</p>
-          <p>最大长度16字符，不合法字符将被自动过滤</p>
+        <h3>创建投票（扣除100积分）</h3>
+        <div class="dialog-group">
+          <label>投票标题：</label>
+          <input
+            v-model="createForm.title"
+            maxlength="50"
+            placeholder="请输入投票标题"
+            class="topic-input"
+          />
+          <div class="length-tip">{{ createForm.title.length }}/50</div>
         </div>
-        <input v-model="newTopic" type="text" maxlength="16" placeholder="请输入新话题" class="topic-input" />
+        <div class="dialog-group">
+          <label>投票类型：</label>
+          <div class="type-row">
+            <label><input type="radio" :value="true" v-model="createForm.singleChoice" /> 单选</label>
+            <label><input type="radio" :value="false" v-model="createForm.singleChoice" /> 多选</label>
+          </div>
+        </div>
+        <div class="dialog-group">
+          <label>投票选项：</label>
+          <div v-for="(option, index) in createForm.options" :key="index" class="option-edit-row">
+            <input
+              v-model="createForm.options[index]"
+              maxlength="30"
+              :placeholder="`选项 ${index + 1}`"
+              class="topic-input option-input"
+            />
+            <button
+              class="remove-option-btn"
+              :disabled="createForm.options.length <= 2"
+              @click="removeOption(index)"
+            >
+              ×
+            </button>
+          </div>
+          <button class="add-option-btn" @click="addOption">+ 添加选项</button>
+        </div>
         <div class="dialog-buttons">
-          <button class="cancel-btn" @click="closeDialog">取消</button>
-          <button class="confirm-btn" @click="confirmEdit" :disabled="!isValidTopic">
-            确认修改
+          <button class="cancel-btn" @click="closeCreateDialog">取消</button>
+          <button
+            class="confirm-btn"
+            :disabled="!canCreateVote || creatingVote"
+            @click="handleCreateVote"
+          >
+            {{ creatingVote ? "创建中..." : "创建投票" }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showVoteListDialog" class="dialog-overlay" @click="closeVoteListDialog">
+      <div class="dialog-content vote-list-dialog" @click.stop>
+        <div class="vote-list-header">
+          <h3>活跃投票列表</h3>
+          <button class="close-btn" @click="closeVoteListDialog">×</button>
+        </div>
+        <div v-if="votesLoading" class="loading-placeholder vote-loading">
+          <div class="loading-spinner"></div>
+          <p>刷新投票中...</p>
+        </div>
+        <div v-else-if="voteList.length === 0" class="topic-text">暂无活跃投票</div>
+        <div v-else class="vote-summary-list">
+          <div v-for="(vote, index) in voteList" :key="vote.voteId" class="vote-summary-item">
+            <div class="vote-summary-main">
+              <div class="vote-summary-title" :title="vote.title">
+                {{ index + 1 }}. {{ vote.title }} <span class="vote-type">({{ vote.singleChoice ? "单选" : "多选" }})</span>
+              </div>
+              <div class="vote-summary-meta">
+                <span>总票数：{{ vote.totalCount || 0 }}</span>
+                <span>剩余：{{ formatRemainingMinutes(vote.remainingSeconds) }}</span>
+              </div>
+            </div>
+            <button class="join-vote-btn" @click="openVoteDetail(vote)">参与投票</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showVoteDetail" class="dialog-overlay" @click="closeVoteDetail">
+      <div class="dialog-content vote-detail-dialog" @click.stop>
+        <div class="vote-detail-header">
+          <h3 class="vote-detail-title" :title="voteDetail?.title || ''">
+            {{ voteDetail?.title || "投票详情" }}
+          </h3>
+          <button v-if="isAdmin && voteDetail?.voteId" class="vote-delete-btn" @click="handleDeleteVote(voteDetail.voteId)">
+            删除
+          </button>
+        </div>
+        <div v-if="voteDetailLoading" class="loading-placeholder">
+          <div class="loading-spinner"></div>
+          <p>加载中...</p>
+        </div>
+        <template v-else>
+          <div class="vote-meta" v-if="voteDetail">
+            <span>{{ voteDetail.singleChoice ? "单选" : "多选" }}</span>
+            <span>{{ voteDetail.totalCount || 0 }} 票</span>
+            <span>{{ formatRemaining(voteDetail.remainingSeconds) }}</span>
+          </div>
+          <div class="vote-options" v-if="voteDetail">
+            <label
+              v-for="option in voteDetail.options"
+              :key="`${voteDetail.voteId}-${option.index}`"
+              class="vote-option"
+            >
+              <input
+                :type="voteDetail.singleChoice ? 'radio' : 'checkbox'"
+                :name="`vote-${voteDetail.voteId}`"
+                :checked="isOptionChecked(voteDetail.voteId, option.index, voteDetail.singleChoice)"
+                :disabled="voteDetail.hasVoted || voteDetail.remainingSeconds <= 0 || voteSubmitting[voteDetail.voteId]"
+                @change="toggleOption(voteDetail, option.index)"
+              />
+              <div class="option-content">
+                <div class="option-text-row">
+                  <span class="option-text" :title="option.text">{{ option.text }}</span>
+                  <span class="option-count">{{ option.count }} ({{ option.percentage }}%)</span>
+                </div>
+                <div class="option-bar">
+                  <div class="option-bar-fill" :style="{ width: `${option.percentage || 0}%` }"></div>
+                </div>
+              </div>
+            </label>
+          </div>
+          <div class="vote-detail-footer" v-if="voteDetail">
+            <button
+              class="vote-submit-btn vote-detail-submit"
+              :disabled="!canSubmitVote(voteDetail) || !!voteSubmitting[voteDetail.voteId]"
+              @click="submitVote(voteDetail)"
+            >
+              {{ voteDetail.hasVoted ? "已投票" : (voteSubmitting[voteDetail.voteId] ? "提交中..." : "提交投票") }}
+            </button>
+          </div>
+        </template>
+        <div class="vote-detail-actions">
+          <button class="cancel-btn vote-detail-close" @click="closeVoteDetail">关闭</button>
         </div>
       </div>
     </div>
@@ -49,64 +180,313 @@
 </template>
 
 <script setup>
-  import { defineProps, ref, computed, defineEmits } from "vue";
+  import { defineProps, ref, onMounted, computed, reactive } from "vue";
   import { useRouter } from "vue-router";
-  import { chatApi } from "../api/chat";
+  import { voteApi } from "../api/vote";
+  import { ElMessage } from "element-plus";
+  import { useUserStore } from "../stores/user";
 
   const router = useRouter();
-  const emit = defineEmits(["topic-click"]);
+  const userStore = useUserStore();
 
   const props = defineProps({
     onlineUsers: {
       type: Array,
       default: () => [],
     },
-    currentTopic: {
-      type: String,
-      default: "",
-    },
   });
 
-  const showDialog = ref(false);
-  const newTopic = ref("");
+  const votesLoading = ref(false);
+  const creatingVote = ref(false);
+  const showCreateDialog = ref(false);
+  const voteList = ref([]);
+  const showVoteListDialog = ref(false);
+  const showVoteDetail = ref(false);
+  const voteDetailLoading = ref(false);
+  const voteDetail = ref(null);
+  const selectedOptions = reactive({});
+  const voteSubmitting = reactive({});
 
-  const isValidTopic = computed(() => {
-    return newTopic.value.trim().length > 0 && newTopic.value.length <= 16;
+  const createForm = reactive({
+    title: "",
+    singleChoice: true,
+    options: ["", ""],
   });
 
-  const showEditDialog = () => {
-    newTopic.value = props.currentTopic;
-    showDialog.value = true;
+  const isAdmin = computed(() => userStore.userInfo?.userRole === "admin");
+  const canCreateVote = computed(() => {
+    const titleValid = createForm.title.trim().length > 0;
+    const validOptions = createForm.options.map((item) => item.trim()).filter(Boolean);
+    return titleValid && validOptions.length >= 2;
+  });
+
+  const normalizeVoteListItem = (raw) => {
+    const voteId = raw?.voteId || raw?.id || raw;
+    return {
+      voteId: String(voteId || ""),
+      title: raw?.title || raw?.voteTitle || raw?.name || String(voteId || "未命名投票"),
+      singleChoice: Boolean(raw?.singleChoice ?? true),
+    };
   };
 
-  const closeDialog = () => {
-    showDialog.value = false;
-    newTopic.value = "";
+  const normalizeVoteDetail = (resultData, fallback = {}) => {
+    const voteId = resultData?.voteId || fallback.voteId || "";
+    return {
+      voteId: String(voteId || ""),
+      title: resultData?.title || fallback.title || "未命名投票",
+      singleChoice: Boolean(resultData?.singleChoice ?? fallback.singleChoice ?? true),
+      hasVoted: Boolean(resultData?.hasVoted),
+      totalCount: Number(resultData?.totalCount || 0),
+      remainingSeconds: Number(resultData?.remainingSeconds || 0),
+      userVotedOptions: Array.isArray(resultData?.userVotedOptions) ? resultData.userVotedOptions : [],
+      options: Array.isArray(resultData?.options)
+        ? resultData.options.map((option) => ({
+            count: Number(option?.count || 0),
+            index: Number(option?.index || 0),
+            percentage: Number(option?.percentage || 0),
+            text: option?.text || `选项 ${Number(option?.index || 0) + 1}`,
+          }))
+        : [],
+    };
   };
 
-  const confirmEdit = async () => {
-    if (!isValidTopic.value) return;
-
+  const loadVotes = async () => {
+    votesLoading.value = true;
     try {
-      const content = `[setdiscuss]${newTopic.value}[/setdiscuss]`;
-      await chatApi.sendMessage(content);
-      closeDialog();
+      const listResponse = await voteApi.getActiveVotes();
+      if (listResponse.code !== 0) {
+        ElMessage.error(listResponse.message || "获取投票列表失败");
+        return;
+      }
+
+      const list = Array.isArray(listResponse.data) ? listResponse.data : [];
+      if (list.length === 0) {
+        voteList.value = [];
+        return;
+      }
+      const baseList = list.map(normalizeVoteListItem).filter((item) => item.voteId);
+      const enrichedList = await Promise.all(
+        baseList.map(async (item) => {
+          try {
+            const resultResponse = await voteApi.getVoteResult(item.voteId);
+            if (resultResponse.code === 0 && resultResponse.data) {
+              return {
+                ...item,
+                title: resultResponse.data.title || item.title,
+                singleChoice: Boolean(resultResponse.data.singleChoice ?? item.singleChoice),
+                totalCount: Number(resultResponse.data.totalCount || 0),
+                remainingSeconds: Number(resultResponse.data.remainingSeconds || 0),
+              };
+            }
+            return item;
+          } catch {
+            return item;
+          }
+        })
+      );
+      voteList.value = enrichedList;
     } catch (error) {
-      console.error("修改话题失败:", error);
+      console.error("获取投票失败:", error);
+      ElMessage.error("获取投票失败");
+    } finally {
+      votesLoading.value = false;
     }
   };
 
-  // 查看用户信息
+  const openVoteListDialog = async () => {
+    showVoteListDialog.value = true;
+    if (!voteList.value.length) {
+      await loadVotes();
+    }
+  };
+
+  const closeVoteListDialog = () => {
+    showVoteListDialog.value = false;
+  };
+
+  const openVoteDetail = async (vote) => {
+    const voteId = vote?.voteId;
+    if (!voteId) return;
+    showVoteDetail.value = true;
+    voteDetailLoading.value = true;
+    voteDetail.value = null;
+    try {
+      const resultResponse = await voteApi.getVoteResult(voteId);
+      if (resultResponse.code === 0 && resultResponse.data) {
+        voteDetail.value = normalizeVoteDetail(resultResponse.data, vote);
+        selectedOptions[voteId] = Array.isArray(voteDetail.value.userVotedOptions)
+          ? [...voteDetail.value.userVotedOptions]
+          : [];
+      } else {
+        ElMessage.error(resultResponse.message || "获取投票详情失败");
+      }
+    } catch (error) {
+      console.error("获取投票详情失败:", error);
+      ElMessage.error("获取投票详情失败");
+    } finally {
+      voteDetailLoading.value = false;
+    }
+  };
+
+  const closeVoteDetail = () => {
+    showVoteDetail.value = false;
+    voteDetailLoading.value = false;
+    voteDetail.value = null;
+  };
+
+  const openCreateDialog = () => {
+    createForm.title = "";
+    createForm.singleChoice = true;
+    createForm.options = ["", ""];
+    showCreateDialog.value = true;
+  };
+
+  const closeCreateDialog = () => {
+    showCreateDialog.value = false;
+  };
+
+  const addOption = () => {
+    if (createForm.options.length >= 8) {
+      ElMessage.warning("最多添加 8 个选项");
+      return;
+    }
+    createForm.options.push("");
+  };
+
+  const removeOption = (index) => {
+    if (createForm.options.length <= 2) return;
+    createForm.options.splice(index, 1);
+  };
+
+  const handleCreateVote = async () => {
+    if (!canCreateVote.value) return;
+    creatingVote.value = true;
+    try {
+      const payload = {
+        title: createForm.title.trim(),
+        singleChoice: createForm.singleChoice,
+        options: createForm.options.map((item) => item.trim()).filter(Boolean),
+      };
+      const response = await voteApi.createVote(payload);
+      if (response.code === 0) {
+        ElMessage.success("创建投票成功");
+        closeCreateDialog();
+        loadVotes();
+      } else {
+        ElMessage.error(response.message || "创建投票失败");
+      }
+    } catch (error) {
+      console.error("创建投票失败:", error);
+      ElMessage.error("创建投票失败");
+    } finally {
+      creatingVote.value = false;
+    }
+  };
+
+  const isOptionChecked = (voteId, index, singleChoice) => {
+    const picked = selectedOptions[voteId] || [];
+    if (singleChoice) {
+      return picked[0] === index;
+    }
+    return picked.includes(index);
+  };
+
+  const toggleOption = (vote, index) => {
+    const voteId = vote.voteId;
+    if (!selectedOptions[voteId]) {
+      selectedOptions[voteId] = [];
+    }
+    if (vote.singleChoice) {
+      selectedOptions[voteId] = [index];
+      return;
+    }
+    const exists = selectedOptions[voteId].includes(index);
+    if (exists) {
+      selectedOptions[voteId] = selectedOptions[voteId].filter((item) => item !== index);
+    } else {
+      selectedOptions[voteId] = [...selectedOptions[voteId], index];
+    }
+  };
+
+  const canSubmitVote = (vote) => {
+    if (vote.hasVoted || vote.remainingSeconds <= 0) return false;
+    const picked = selectedOptions[vote.voteId] || [];
+    return picked.length > 0;
+  };
+
+  const submitVote = async (vote) => {
+    const picked = selectedOptions[vote.voteId] || [];
+    if (picked.length === 0) return;
+    voteSubmitting[vote.voteId] = true;
+    try {
+      const response = await voteApi.recordVote({
+        voteId: vote.voteId,
+        optionIndexes: picked,
+      });
+      if (response.code === 0) {
+        ElMessage.success("投票成功");
+        if (showVoteDetail.value && vote?.voteId) {
+          await openVoteDetail(vote);
+        } else {
+          await loadVotes();
+        }
+      } else {
+        ElMessage.error(response.message || "投票失败");
+      }
+    } catch (error) {
+      console.error("投票失败:", error);
+      ElMessage.error("投票失败");
+    } finally {
+      voteSubmitting[vote.voteId] = false;
+    }
+  };
+
+  const handleDeleteVote = async (voteId) => {
+    try {
+      const response = await voteApi.deleteVote({ voteId });
+      if (response.code === 0) {
+        ElMessage.success("删除投票成功");
+        if (voteDetail.value?.voteId === voteId) {
+          closeVoteDetail();
+        }
+        loadVotes();
+      } else {
+        ElMessage.error(response.message || "删除投票失败");
+      }
+    } catch (error) {
+      console.error("删除投票失败:", error);
+      ElMessage.error("删除投票失败");
+    }
+  };
+
+  const formatRemaining = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds <= 0) return "已结束";
+    const totalMinutes = Math.ceil(seconds / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) {
+      return `${hours}小时${minutes}分钟`;
+    }
+    return `${minutes}分钟`;
+  };
+
+  const formatRemainingMinutes = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds <= 0) return "已结束";
+    const totalMinutes = Math.ceil(seconds / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) {
+      return `${hours} 小时 ${minutes} 分钟`;
+    }
+    return `${minutes} 分钟`;
+  };
+
+  onMounted(() => {
+    loadVotes();
+  });
+
   const showUserProfile = (userName) => {
     router.push(`/user/${userName}`);
-  };
-
-  // 处理话题点击
-  const handleTopicClick = () => {
-    if (props.currentTopic) {
-      const formattedTopic = `*\`# ${props.currentTopic} #\`*`;
-      emit("topic-click", formattedTopic);
-    }
   };
 
   // 获取头像 URL，优先使用 userAvatarURL48，如果没有则使用 avatar
@@ -156,7 +536,7 @@
   .sidebar-container {
     padding: 0;
     width: 150px;
-    background-color: var(----card-bg);
+    background-color: var(--card-bg);
     border-left: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
@@ -169,6 +549,10 @@
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 0;
     flex-shrink: 0;
+  }
+
+  .topic-section {
+    padding: 10px;
   }
 
   .sidebar-section:last-of-type {
@@ -196,17 +580,357 @@
     color: var(--primary-color);
   }
 
-  .topic-text {
-    margin: 0;
-    font-size: 14px;
-    color: var(--sub-text-color);
-    word-break: break-word;
+  .vote-entry {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(47, 126, 247, 0.08), rgba(47, 126, 247, 0.03));
     cursor: pointer;
-    transition: color 0.2s ease;
+    transition: all 0.2s ease;
   }
 
-  .topic-text:hover {
-    color: var(--primary-color);
+  .vote-entry:hover {
+    border-color: rgba(47, 126, 247, 0.35);
+    box-shadow: 0 3px 10px rgba(47, 126, 247, 0.12);
+  }
+
+  .vote-entry-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .vote-entry-title {
+    font-size: 12px;
+    color: #2f7ef7;
+    font-weight: 500;
+  }
+
+  .vote-entry-subtitle {
+    font-size: 11px;
+    color: var(--sub-text-color);
+  }
+
+  .vote-entry-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .icon-tooltip {
+    flex: 1;
+    width: 0;
+    display: inline-flex;
+  }
+
+  .icon-btn {
+    width: 100%;
+    height: 30px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--card-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .icon-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .create-btn {
+    border-color: #f39a43;
+  }
+
+  .create-btn .edit-icon {
+    color: #f39a43;
+  }
+
+  .create-btn:hover:not(:disabled) {
+    filter: brightness(0.98);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(246, 163, 90, 0.3);
+  }
+
+  .refresh-btn {
+    background: #fff;
+    border-color: #d8e7ff;
+  }
+
+  .refresh-btn .edit-icon {
+    color: #2f7ef7;
+  }
+
+  .refresh-btn:hover:not(:disabled) {
+    border-color: #2f7ef7;
+    background: #f5f9ff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(47, 126, 247, 0.18);
+  }
+
+  .refresh-btn:disabled {
+    background: #f5f9ff;
+    border-color: #d8e7ff;
+  }
+
+  .topic-text {
+    font-size: 12px;
+    color: var(--sub-text-color);
+  }
+
+  .vote-list-dialog {
+    width: 720px;
+  }
+
+  .vote-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .vote-list-header h3 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .close-btn {
+    border: none;
+    background: transparent;
+    font-size: 28px;
+    line-height: 1;
+    color: #999;
+    cursor: pointer;
+  }
+
+  .vote-summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .vote-summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, var(--card-bg), rgba(0, 0, 0, 0.01));
+    transition: all 0.2s ease;
+  }
+
+  .vote-summary-item:hover {
+    border-color: rgba(47, 126, 247, 0.3);
+    box-shadow: 0 4px 14px rgba(47, 126, 247, 0.1);
+  }
+
+  .vote-summary-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .vote-summary-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vote-type {
+    color: var(--sub-text-color);
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .vote-summary-meta {
+    display: flex;
+    gap: 14px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--sub-text-color);
+  }
+
+  .join-vote-btn {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 8px;
+    background: #f6a35a;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .join-vote-btn:hover {
+    filter: brightness(0.97);
+    transform: translateY(-1px);
+  }
+
+  .vote-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .vote-detail-title {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .vote-delete-btn {
+    border: none;
+    background: transparent;
+    color: #ff4d4f;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .vote-meta {
+    display: flex;
+    gap: 12px;
+    color: var(--sub-text-color);
+    font-size: 13px;
+    margin: 2px 0 10px;
+  }
+
+  .vote-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .vote-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .option-content {
+    flex: 1;
+  }
+
+  .option-text-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .option-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    color: var(--text-color);
+  }
+
+  .option-count {
+    color: var(--sub-text-color);
+    font-size: 13px;
+  }
+
+  .option-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--hover-bg);
+    border-radius: 999px;
+    margin-top: 5px;
+    overflow: hidden;
+  }
+
+  .option-bar-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.2s;
+  }
+
+  .vote-submit-btn {
+    width: 100%;
+    margin-top: 8px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    cursor: pointer;
+    color: var(--text-color);
+    transition: all 0.2s ease;
+  }
+
+  .vote-submit-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .vote-detail-dialog {
+    width: 760px;
+    max-width: calc(100vw - 40px);
+    padding: 18px 18px 14px;
+    border-radius: 14px;
+  }
+
+  .vote-detail-dialog .vote-option input[type="radio"],
+  .vote-detail-dialog .vote-option input[type="checkbox"] {
+    margin-top: 6px;
+    transform: scale(1.05);
+  }
+
+  .vote-detail-footer {
+    margin-top: 12px;
+  }
+
+  .vote-detail-submit {
+    height: 38px;
+    font-size: 14px;
+    color: #fff;
+    background: #f6a35a;
+    border: none;
+  }
+
+  .vote-detail-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+
+  .vote-detail-close {
+    min-width: 88px;
+    height: 34px;
+    font-size: 13px;
+    border-radius: 8px;
+    color: #fff;
+    background: #f6a35a;
+    border: none;
+  }
+
+  .vote-detail-close:hover,
+  .vote-detail-submit:hover {
+    filter: brightness(0.97);
+    transform: translateY(-1px);
+  }
+
+  .vote-detail-close:disabled,
+  .vote-detail-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
   }
 
   .online-users-section {
@@ -292,92 +1016,114 @@
 
   .dialog-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     z-index: 1000;
   }
 
   .dialog-content {
-    background-color: var(--card-bg);
-    padding: 20px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 400px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    width: 520px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 14px;
   }
 
-  .dialog-content h3 {
-    margin: 0 0 16px 0;
-    color: var(--text-color);
-    font-size: 18px;
+  .dialog-group {
+    margin-bottom: 12px;
   }
 
-  .dialog-info {
-    margin-bottom: 16px;
-    color: var(--sub-text-color);
+  .dialog-group label {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .type-row {
+    display: flex;
+    gap: 16px;
     font-size: 14px;
-  }
-
-  .dialog-info p {
-    margin: 4px 0;
   }
 
   .topic-input {
     width: 100%;
-    padding: 8px 12px;
+    height: 36px;
+    padding: 0 10px;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-size: 14px;
-    margin-bottom: 16px;
+    border-radius: 8px;
     background: var(--card-bg);
     color: var(--text-color);
   }
 
-  .topic-input:focus {
-    outline: none;
-    border-color: var(--primary-color);
+  .length-tip {
+    text-align: right;
+    color: var(--sub-text-color);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .option-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .option-input {
+    flex: 1;
+  }
+
+  .remove-option-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: var(--hover-bg);
+    cursor: pointer;
+  }
+
+  .add-option-btn {
+    width: 100%;
+    height: 34px;
+    border: 1px dashed var(--border-color);
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
   }
 
   .dialog-buttons {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 10px;
+    margin-top: 10px;
   }
 
-  .dialog-buttons button {
-    padding: 8px 16px;
-    border-radius: 4px;
-    font-size: 14px;
-    cursor: pointer;
+  .cancel-btn,
+  .confirm-btn {
+    min-width: 90px;
+    height: 36px;
     border: none;
+    border-radius: 8px;
+    cursor: pointer;
   }
 
   .cancel-btn {
-    background-color: var(--hover-bg);
-    color: var(--sub-text-color);
-  }
-
-  .cancel-btn:hover {
-    background-color: var(--background-color);
+    background: var(--hover-bg);
+    color: var(--text-color);
   }
 
   .confirm-btn {
-    background-color: var(--primary-color);
-    color: var(--button-text);
-  }
-
-  .confirm-btn:hover:not(:disabled) {
-    background-color: var(--button-bg);
+    background: #f6a35a;
+    color: #fff;
   }
 
   .confirm-btn:disabled {
-    background-color: #bfbfbf;
+    opacity: 0.6;
     cursor: not-allowed;
   }
 
@@ -398,6 +1144,14 @@
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 8px;
+  }
+
+  .vote-loading p {
+    margin: 0;
+  }
+
+  .spinning {
+    animation: spin 0.8s linear infinite;
   }
 
   @keyframes spin {
