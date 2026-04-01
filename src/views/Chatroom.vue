@@ -18,7 +18,7 @@
     </div>
     <div class="sidebar" v-show="showSidebar">
       <!-- 侧边栏组件 -->
-      <Sidebar :online-users="onlineUsers" :current-topic="currentTopic" @topic-click="handleTopicClick" />
+      <Sidebar :online-users="onlineUsers" />
     </div>
   </div>
 </template>
@@ -53,7 +53,6 @@ const MAX_CONSECUTIVE_EMPTY_PAGES = 5; // 连续5页都没有有效消息时停�
 
 // 在线用户和话题 - 从store获取
 const onlineUsers = ref([]);
-const currentTopic = ref("");
 
 // 侧边栏状态
 const showSidebar = ref(true);
@@ -369,7 +368,6 @@ const messageHandlers = {
     chatroomStore.updateData({ ...data, users: transformedUsers });
     // 同步到本地ref
     onlineUsers.value = transformedUsers;
-    currentTopic.value = data.discussing || "";
   },
   chat: (data) => {
     const messagePayload = data?.data?.message || data?.message;
@@ -570,8 +568,6 @@ const messageHandlers = {
   },
   discussChanged: (data) => {
     console.log("处理话题变更:", data);
-    // 更新当前话题
-    currentTopic.value = data.newDiscuss;
     // 更新store中的话题
     chatroomStore.updateTopic(data.newDiscuss);
 
@@ -1112,10 +1108,6 @@ const handleSendSameMessage = (content) => {
   handleSendMessage(content);
 };
 
-// 处理话题点击
-const handleTopicClick = (formattedTopic) => {
-  chatInputRef.value?.insertTopic(formattedTopic);
-};
 
 // 处理引用消息
 const handleQuote = (message) => {
@@ -1617,7 +1609,6 @@ onMounted(() => {
 
   // 从缓存加载数据到本地ref
   onlineUsers.value = chatroomStore.cachedOnlineUsers;
-  currentTopic.value = chatroomStore.cachedTopic;
 
   bells.value = getBells();
 
