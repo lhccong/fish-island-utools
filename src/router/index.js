@@ -15,6 +15,7 @@ import Games from "../views/Games.vue";
 import HotPosts from "../views/HotPosts.vue";
 import Reader from "../views/Reader/index.vue";
 import BossBattle from "../views/BossBattle.vue";
+import Lottery from "../views/Lottery.vue";
 
 const routes = [
   {
@@ -79,6 +80,11 @@ const routes = [
         path: "/boss-battle",
         name: "BossBattle",
         component: BossBattle,
+      },
+      {
+        path: "/lottery",
+        name: "Lottery",
+        component: Lottery,
       },
       {
         path: "/post/:id",
