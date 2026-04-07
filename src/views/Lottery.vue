@@ -107,7 +107,10 @@
       <!-- 右侧记录 -->
       <div class="right-section">
         <div class="record-card">
-          <div class="record-title">🏆 我的中奖记录</div>
+          <div class="record-header">
+            <div class="record-title">🏆 我的中奖记录</div>
+            <div class="record-total">共 {{ recordsPagination.total }} 条</div>
+          </div>
 
           <!-- 空状态 -->
           <div
@@ -130,7 +133,7 @@
             </div>
           </div>
 
-          <!-- 分页 -->
+          <!-- 分页（置底） -->
           <div
             v-if="recordsPagination.total > recordsPagination.pageSize"
             class="pagination"
@@ -141,9 +144,17 @@
             >
               &lt;
             </span>
-            <span>{{ recordsPagination.current }}</span>
-            <span>/</span>
-            <span>{{ totalPages }}</span>
+            <span class="page-input-wrapper">
+              <input
+                v-model.number="jumpPage"
+                type="number"
+                min="1"
+                :max="totalPages"
+                class="page-input"
+                @keyup.enter="goPage(jumpPage)"
+              />
+              <span class="page-total">/ {{ totalPages }}</span>
+            </span>
             <span
               @click="goPage(recordsPagination.current + 1)"
               :class="{ disabled: recordsPagination.current >= totalPages }"
@@ -197,6 +208,7 @@ const turntableLoading = ref(false)
 const prizes = ref([])
 
 const lotteryRecords = ref([])
+const jumpPage = ref(1)
 const recordsPagination = reactive({
   current: 1,
   pageSize: 12,
@@ -349,6 +361,7 @@ async function switchTab(id) {
 // 分页
 function goPage(p) {
   if (p < 1 || p > totalPages.value) return
+  jumpPage.value = p
   loadRecords(+activeTabKey.value, p)
 }
 
@@ -389,6 +402,8 @@ watch(activeTabKey, (id) => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  height: 100vh;
+  overflow: hidden;
 }
 .currency-bar {
   display: flex;
@@ -505,10 +520,10 @@ watch(activeTabKey, (id) => {
 }
 
 /* 品质 */
-.common { background: #fafafa;}
-.rare { background: #6facff;}
-.epic { background: #b27dff;}
-.legend { background: #ff9f42; }
+.common { background: #fff; border-color: #d3d1d1;}
+.rare { background: linear-gradient(135deg,#e3f2fd,#bbdefb); border-color: #6facff;}
+.epic { background: linear-gradient(135deg,#f3e5f5,#e1bee7); border-color: #b27dff;}
+.legend { background: linear-gradient(135deg,#fff3e0,#ffe0b2); border-color: #f88b1f; }
 
 /* 按钮 */
 .btn-group {
@@ -576,8 +591,10 @@ button:disabled {
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-  max-height: 620px;
+  max-height: calc(100vh - 90px);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 .record-title {
   font-size: 16px;
@@ -588,6 +605,8 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  overflow-y: auto;
 }
 .record-item {
   display: flex;
@@ -604,14 +623,29 @@ button:disabled {
   color: #999;
 }
 
+/* 记录头部 */
+.record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.record-total {
+  font-size: 13px;
+  color: #666;
+}
+
 /* 分页 */
 .pagination {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: auto;
+  padding-top: 12px;
   font-size: 14px;
+  flex-shrink: 0;
 }
+
 .pagination span {
   cursor: pointer;
   padding: 0 6px;
@@ -619,6 +653,26 @@ button:disabled {
 .disabled {
   opacity: 0.4;
   cursor: not-allowed !important;
+}
+.page-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-input {
+  width: 40px;
+  height: 24px;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.page-input:focus {
+  outline: none;
+  border-color: #4096ff;
+}
+.page-total {
+  color: #666;
 }
 
 /* 十连弹窗 */
@@ -674,5 +728,280 @@ button:disabled {
   border: none;
   border-radius: 6px;
   cursor: pointer;
+}
+
+/* 宽度不够时收窄抽奖记录 */
+@media (max-width: 1100px) {
+  .right-section {
+    width: 230px;
+  }
+  
+  .lottery-content {
+    gap: 16px;
+  }
+}
+
+/* 宽度很小时隐藏抽奖记录 */
+@media (max-width: 700px) {
+  .right-section {
+    display: none;
+  }
+  
+  .left-section {
+    width: 100%;
+  }
+}
+
+/* 小屏幕优化 */
+@media (max-width: 600px) {
+  .lottery-container {
+    padding: 12px;
+  }
+  
+  .prize-grid {
+    gap: 8px;
+  }
+  
+  .prize-item {
+    padding: 12px;
+  }
+  
+  .prize-icon img {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .prize-name {
+    font-size: 12px;
+  }
+  
+  .btn {
+    height: 44px;
+    font-size: 14px;
+  }
+  
+  .modal {
+    width: 95%;
+    margin: 0 auto;
+  }
+  
+  .modal-body {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* 高度响应式布局 - 按优先级逐步隐藏元素 */
+
+/* 第一步：高度较小时缩放抽奖框 */
+@media (max-height: 700px) {
+  .lottery-container {
+    padding: 10px;
+  }
+  
+  .grid-container {
+    padding: 12px;
+  }
+  
+  .prize-grid {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .prize-item {
+    padding: 10px;
+  }
+  
+  .prize-icon img {
+    width: 45px;
+    height: 45px;
+  }
+  
+  .prize-name {
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  
+  .btn {
+    height: 42px;
+    font-size: 14px;
+  }
+  
+  .btn-group {
+    gap: 12px;
+  }
+}
+
+/* 第二步：高度更小时隐藏TAB */
+@media (max-height: 600px) {
+  .tabs {
+    display: none;
+  }
+  
+  .grid-container {
+    padding: 10px;
+  }
+  
+  .prize-item {
+    padding: 8px;
+  }
+  
+  .prize-icon img {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .prize-name {
+    font-size: 12px;
+  }
+}
+
+/* 第三步：高度很小时隐藏积分栏和进度条 */
+@media (max-height: 500px) {
+  /* .currency-bar {
+    display: none;
+  } */
+  
+  /* .progress-group,
+  .progress-tip {
+    display: none;
+  } */
+  
+  .lottery-container {
+    padding: 8px;
+  }
+  
+  .grid-container {
+    padding: 8px;
+  }
+  
+  .prize-grid {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  
+  .prize-item {
+    padding: 6px;
+  }
+  
+  .prize-icon img {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .btn {
+    height: 38px;
+    font-size: 13px;
+  }
+}
+
+/* 第四步：高度极小时进一步缩放，但始终保留抽奖框 */
+/* @media (max-height: 400px) {
+  .lottery-container {
+    padding: 6px;
+  }
+  
+  .grid-container {
+    padding: 6px;
+  }
+  
+  .prize-grid {
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  
+  .prize-item {
+    padding: 4px;
+  }
+  
+  .prize-icon img {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .prize-name {
+    font-size: 11px;
+  }
+  
+  .btn {
+    height: 34px;
+    font-size: 12px;
+  }
+  
+  .btn-group {
+    gap: 8px;
+  }
+} */
+
+/* 右侧记录区域高度同步缩放 - 断点比左侧晚50px */
+@media (max-height: 550px) {
+  .record-card {
+    max-height: calc(100vh - 150px);
+    padding: 12px;
+  }
+  
+  .record-title {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .record-list {
+    gap: 6px;
+  }
+  
+  .record-item {
+    gap: 8px;
+  }
+  
+  .record-icon img {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (max-height: 550px) {
+  .record-card {
+    max-height: calc(100vh - 120px);
+    padding: 10px;
+  }
+  
+  .record-text {
+    font-size: 13px;
+  }
+}
+
+@media (max-height: 450px) {
+  .record-card {
+    max-height: calc(100vh - 100px);
+    padding: 8px;
+  }
+  
+  .record-title {
+    font-size: 13px;
+  }
+  
+  .record-icon img {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .record-text {
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 350px) {
+  .record-card {
+    max-height: calc(100vh - 80px);
+    padding: 6px;
+  }
+  
+  .record-list {
+    gap: 4px;
+  }
+  
+  .record-item {
+    gap: 6px;
+  }
 }
 </style>
