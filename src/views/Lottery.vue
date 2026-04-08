@@ -268,30 +268,50 @@ async function loadRecords(tid, page = 1) {
     prizeIcon: i.icon || '🎁',
     quality: i.quality,
   }))
-  recordsPagination.current = page
-  recordsPagination.total = data.total || 0
+  recordsPagination.total = data.total
 }
 
-// 动画
-function runAnimation(target) {
+// 空转动画（加载中效果）
+function runIdleAnimation(duration = 1500) {
+  return new Promise((resolve) => {
+    const startTime = Date.now()
+    const speed = 100
+    let step = 0
+    const run = () => {
+      const elapsed = Date.now() - startTime
+      if (elapsed < duration) {
+        const i = step % animationSequence.length
+        activeIndex.value = animationSequence[i]
+        step++
+        setTimeout(run, speed)
+      } else {
+        resolve()
+      }
+    }
+    run()
+  })
+}
+
+// 结果动画（减速停在目标）
+function runResultAnimation(target) {
   return new Promise((resolve) => {
     let step = 0
-    let speed = 80
-    const rounds = 3
+    let speed = 60
+    const rounds = 2
     const total = animationSequence.length * rounds + animationSequence.indexOf(target)
     const run = () => {
       const i = step % animationSequence.length
       activeIndex.value = animationSequence[i]
       step++
       if (step <= total) {
-        if (step > total - 8) speed += 60
+        if (step > total - 6) speed += 80
         setTimeout(run, speed)
       } else {
         activeIndex.value = target
         setTimeout(() => {
           activeIndex.value = null
           resolve()
-        }, 300)
+        }, 400)
       }
     }
     run()
@@ -302,21 +322,34 @@ function runAnimation(target) {
 async function doDraw() {
   if (drawing.value) return
   drawing.value = true
+
+  // 先开始空转制造悬念
+  const idlePromise = runIdleAnimation(1200)
+
   try {
     const res = await turntableApi.draw(currentTurntable.value.id, 1)
+    await idlePromise // 确保至少空转1.2秒
+
     if (res.code === 0) {
       const prize = res.data.prizeList[0]
       const idx = prizes.value.findIndex((p) => p.prizeId == prize.prizeId || p.id == prize.prizeId)
       const target = idx >= 0 ? idx : animationSequence[Math.random() * 8 | 0]
-      await runAnimation(target)
-      alert('恭喜获得：' + prize.name)
+      await runResultAnimation(target)
+
+      // 自定义消息通知
+      ElMessage.success({
+        message: `恭喜获得：${prize.name}`,
+        duration: 3000,
+        showClose: true
+      })
       loadDetail(currentTurntable.value.id)
       loadRecords(currentTurntable.value.id)
     } else {
-      ElMessage.error(res.message)
+      ElMessage.error(res.message || '抽奖失败')
     }
   } catch (e) {
-    alert(e.message || '抽奖失败')
+    await idlePromise
+    ElMessage.error(e.message || '抽奖失败')
   } finally {
     drawing.value = false
   }
@@ -326,26 +359,42 @@ async function doDraw() {
 async function doTenDraw() {
   if (drawing.value) return
   drawing.value = true
+
+  // 先开始空转制造悬念（十连时间稍长）
+  const idlePromise = runIdleAnimation(1500)
+
   try {
     const res = await turntableApi.draw(currentTurntable.value.id, 10)
+    await idlePromise // 确保至少空转1.5秒
+
     if (res.code === 0) {
       const list = res.data.prizeList
       const last = list[list.length - 1]
       const idx = prizes.value.findIndex((p) => p.prizeId == last.prizeId || p.id == last.prizeId)
-      await runAnimation(idx >= 0 ? idx : animationSequence[Math.random() * 8 | 0])
+      await runResultAnimation(idx >= 0 ? idx : animationSequence[Math.random() * 8 | 0])
+
       tenResults.value = list.map((i) => ({
         id: Date.now() + Math.random(),
         prizeName: i.name,
-        prizeIcon: i.icon || '🎁',
+        prizeIcon: i.icon || '',
       }))
       showTenModal.value = true
+
+      // 十连成功消息
+      const hasRare = list.some(i => i.quality >= 3)
+      ElMessage.success({
+        message: hasRare ? `十连抽完成！获得稀有奖品！` : `十连抽完成！`,
+        duration: 3000,
+        showClose: true
+      })
       loadDetail(currentTurntable.value.id)
       loadRecords(currentTurntable.value.id)
     } else {
-      ElMessage.error(res.message)
+      ElMessage.error(res.message || '十连抽失败')
     }
   } catch (e) {
-    alert('十连抽失败')
+    await idlePromise
+    ElMessage.error(e.message || '十连抽失败')
   } finally {
     drawing.value = false
   }
@@ -479,9 +528,10 @@ watch(activeTabKey, (id) => {
 }
 .grid-container {
   position: relative;
-  background: linear-gradient(135deg,#ff9a56,#ff7b35);
-  border-radius: 10px;
-  padding: 20px;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #fed7aa 100%);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(249, 115, 22, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 /* 九宫格 */
@@ -499,8 +549,9 @@ watch(activeTabKey, (id) => {
   border: 1.5px solid #000000;
 }
 .prize-active {
-  border-color: #ff9500;
-  background: #fff9f0;
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.5), inset 0 0 12px rgba(251, 191, 36, 0.2);
 }
 .prize-icon img {
   width: 50px;
@@ -533,26 +584,41 @@ watch(activeTabKey, (id) => {
 }
 .btn {
   width: 45%;
-  height: 48px;
+  height: 52px;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 15px;
+  font-weight: 600;
   color: white;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 .btn-single {
-  background: #4096ff;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.5);
 }
 .btn-ten {
-  background: #ff7d00;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(124, 58, 237, 0.5);
 }
 .free {
-  color: #fff700;
-  font-weight: bold;
+  color: #fde047;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(253, 224, 71, 0.6);
 }
 button:disabled {
   opacity: 0.5;
