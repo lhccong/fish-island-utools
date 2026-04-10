@@ -6,3 +6,6 @@ export { breezemoonApi } from "./breezemoon";
 export { notificationApi } from "./notification";
 export { stickApi } from "./stick";
 export { bossApi } from "./boss";
+export { petApi } from "./pet";
+export { itemInstancesApi } from "./itemInstances";
+export { petSkinApi } from "./petSkin";
