@@ -14,8 +14,7 @@ import UserProfile from "../views/UserProfile.vue";
 import Games from "../views/Games.vue";
 import HotPosts from "../views/HotPosts.vue";
 import Reader from "../views/Reader/index.vue";
-import BossBattle from "../views/BossBattle.vue";
-import Lottery from "../views/Lottery.vue";
+import PetCenter from "../views/PetCenter.vue";
 
 const routes = [
   {
@@ -77,14 +76,9 @@ const routes = [
         component: HotPosts,
       },
       {
-        path: "/boss-battle",
-        name: "BossBattle",
-        component: BossBattle,
-      },
-      {
-        path: "/lottery",
-        name: "Lottery",
-        component: Lottery,
+        path: "/pet-center",
+        name: "PetCenter",
+        component: PetCenter,
       },
       {
         path: "/post/:id",
