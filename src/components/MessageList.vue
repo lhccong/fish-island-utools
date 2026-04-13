@@ -1611,13 +1611,37 @@ const convertLegacyRedPacketTags = (input = "") => {
   return input;
 };
 
+// 处理HTML中已有的img标签，修复alt和title属性
+const fixHtmlImageAttributes = (input = "") => {
+  if (typeof input !== "string" || !input) {
+    return input;
+  }
+  // 替换已有img标签中的alt和title属性
+  return input.replace(/<img[^>]*>/gi, (match) => {
+    // 如果已经包含我们想要的alt，不修改
+    if (match.includes('alt="图片"')) {
+      return match;
+    }
+    // 替换alt和title属性
+    let fixed = match.replace(/\s+alt=["'][^"']*["']/gi, ' alt="图片"');
+    fixed = fixed.replace(/\s+title=["'][^"']*["']/gi, '');
+    // 如果没有alt属性，添加一个
+    if (!fixed.includes('alt="图片"') && !fixed.includes("alt='图片'")) {
+      fixed = fixed.replace(/<img/i, '<img alt="图片"');
+    }
+    return fixed;
+  });
+};
+
 // 处理引用消息内容，转换图片和红包格式
 const processQuotedMessageContent = (content) => {
   if (!content || typeof content !== 'string') return content;
   // 先处理红包格式转换
   let processedContent = convertLegacyRedPacketTags(content);
-  // 再处理图片格式转换
+  // 再处理旧格式图片标记
   processedContent = convertLegacyImageTags(processedContent);
+  // 最后处理HTML中已有的img标签属性
+  processedContent = fixHtmlImageAttributes(processedContent);
   return processedContent;
 };
 

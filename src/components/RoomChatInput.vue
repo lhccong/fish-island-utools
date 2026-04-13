@@ -551,11 +551,15 @@
       content = convertImgTagsToLegacyFormat(content);
 
       // 将引用消息数据一起发送
+      // 对引用内容也进行格式转换，将HTML img标签转回[img]格式
+      const quotedContent = quoteData.value
+        ? convertImgTagsToLegacyFormat(quoteData.value.content || quoteData.value.md || "")
+        : "";
       const messageData = {
         content,
         quotedMessage: quoteData.value ? {
           id: quoteData.value.oId || quoteData.value.id,
-          content: quoteData.value.content || quoteData.value.md || "",
+          content: quotedContent,
           sender: {
             name: quoteData.value.userName || "",
             avatar: quoteData.value.userAvatarURL || "",
