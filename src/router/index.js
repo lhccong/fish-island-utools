@@ -15,6 +15,8 @@ import Games from "../views/Games.vue";
 import HotPosts from "../views/HotPosts.vue";
 import Reader from "../views/Reader/index.vue";
 import PetCenter from "../views/PetCenter.vue";
+import PointsPlay from "../views/PointsPlay.vue";
+import StockMarket from "../views/StockMarket.vue";
 
 const routes = [
   {
@@ -79,6 +81,19 @@ const routes = [
         path: "/pet-center",
         name: "PetCenter",
         component: PetCenter,
+      },
+      {
+        path: "/points-play",
+        name: "PointsPlay",
+        component: PointsPlay,
+        redirect: "/points-play/stock-market",
+        children: [
+          {
+            path: "stock-market",
+            name: "StockMarket",
+            component: StockMarket,
+          },
+        ],
       },
       {
         path: "/post/:id",
