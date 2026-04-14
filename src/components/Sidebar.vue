@@ -33,7 +33,7 @@
             class="user-avatar" 
             @error="handleAvatarError"
           />
-          <span class="user-name" :title="user.userName">{{ truncateName(user.userName) }}</span>
+          <span class="user-name" :title="getUserTooltip(user)">{{ getDisplayName(user) }}</span>
         </li>
       </ul>
     </div>
@@ -183,6 +183,7 @@
   import { defineProps, ref, onMounted, computed, reactive } from "vue";
   import { useRouter } from "vue-router";
   import { voteApi } from "../api/vote";
+  import { userRemarkApi } from "../api/userRemark";
   import { ElMessage } from "element-plus";
   import { useUserStore } from "../stores/user";
 
@@ -206,6 +207,10 @@
   const voteDetail = ref(null);
   const selectedOptions = reactive({});
   const voteSubmitting = reactive({});
+
+  // 用户备注状态
+  const userRemarks = ref({});
+  const remarksLoaded = ref(false);
 
   const createForm = reactive({
     title: "",
@@ -483,10 +488,88 @@
 
   onMounted(() => {
     loadVotes();
+    loadUserRemarks();
   });
 
+  // 从后端加载用户备注
+  const loadUserRemarks = async () => {
+    try {
+      const response = await userRemarkApi.getRemark();
+      if (response.data?.content) {
+        try {
+          const remarksData = JSON.parse(response.data.content);
+          userRemarks.value = remarksData;
+          remarksLoaded.value = true;
+        } catch (e) {
+          console.error("解析后端备注数据失败:", e);
+        }
+      } else {
+        // 后端没有数据，尝试从localStorage加载
+        migrateLocalRemarks();
+      }
+    } catch (error) {
+      console.error("从后端加载备注失败:", error);
+      remarksLoaded.value = false;
+    }
+  };
+
+  // 从localStorage加载备注数据
+  const migrateLocalRemarks = () => {
+    const currentUser = userStore.userInfo?.userName;
+    if (!currentUser) return;
+    
+    const allRemarks = utools.dbStorage.getItem("fishpi_remarks") || {};
+    const localRemarks = allRemarks[currentUser] || {};
+    
+    if (Object.keys(localRemarks).length > 0) {
+      userRemarks.value = localRemarks;
+    }
+    remarksLoaded.value = true;
+  };
   const showUserProfile = (userName) => {
     router.push(`/user/${userName}`);
+  };
+
+  // 获取用户显示名称（优先显示备注，使用userId作为key）
+  const getDisplayName = (user) => {
+    const userName = user.userName;
+    const userId = user.id || user.userId;
+    if (!userName) return '';
+    
+    // 如果有备注，显示备注（使用userId作为key）
+    const userIdKey = userId ? String(userId) : null;
+    const remark = userIdKey ? userRemarks.value[userIdKey] : null;
+    if (remark) {
+      return truncateName(remark);
+    }
+    
+    return truncateName(userName);
+  };
+
+  // 获取用户提示文本（显示原始用户名和备注）
+  const getUserTooltip = (user) => {
+    const userName = user.userName;
+    const userId = user.id || user.userId;
+    if (!userName) return '';
+    
+    const userIdKey = userId ? String(userId) : null;
+    const remark = userIdKey ? userRemarks.value[userIdKey] : null;
+    if (remark) {
+      return `${userName} (备注: ${remark})`;
+    }
+    
+    return userName;
+  };
+
+  // 截断用户名，限制显示长度
+  const truncateName = (name) => {
+    if (!name) return '';
+    // 限制最大显示长度为 8 个字符（中文字符算 1 个）
+    const maxLength = 8;
+    if (name.length <= maxLength) {
+      return name;
+    }
+    return name.substring(0, maxLength) + '...';
   };
 
   // 获取头像 URL，优先使用 userAvatarURL48，如果没有则使用 avatar
@@ -518,17 +601,6 @@
     `);
     event.target.src = defaultAvatar;
     event.target.onerror = null; // 防止无限循环
-  };
-
-  // 截断用户名，限制显示长度
-  const truncateName = (name) => {
-    if (!name) return '';
-    // 限制最大显示长度为 8 个字符（中文字符算 1 个）
-    const maxLength = 8;
-    if (name.length <= maxLength) {
-      return name;
-    }
-    return name.substring(0, maxLength) + '...';
   };
 </script>
 

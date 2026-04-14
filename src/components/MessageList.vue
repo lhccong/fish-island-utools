@@ -269,6 +269,7 @@ import { ref, onMounted, watch, nextTick, computed } from "vue";
 import dayjs from "dayjs";
 import { useUserStore } from "../stores/user";
 import { chatApi } from "../api/chat";
+import { userRemarkApi } from "../api/userRemark";
 import { useRouter } from "vue-router";
 import ClientInfo from "./ClientInfo.vue";
 import UserInfoCard from "./UserInfoCard.vue";
@@ -320,13 +321,66 @@ const router = useRouter();
 const isPageVisible = ref(true);
 const bells = ref([]);
 
+// 用户备注状态（从后端加载）
+const userRemarks = ref({});
+const remarksLoaded = ref(false);
+
 // 监听页面可见性变化
 onMounted(() => {
   document.addEventListener("visibilitychange", () => {
     console.log("页面监听页面可见性变化");
     isPageVisible.value = document.visibilityState === "visible";
   });
+  // 加载用户备注
+  loadUserRemarks();
 });
+
+// 从后端加载用户备注
+const loadUserRemarks = async () => {
+  try {
+    // 先尝试从后端获取
+    const response = await userRemarkApi.getRemark();
+    if (response.data?.content) {
+      // 后端返回的是备注内容的JSON字符串，解析它
+      try {
+        const remarksData = JSON.parse(response.data.content);
+        userRemarks.value = remarksData;
+        remarksLoaded.value = true;
+        console.log("已从后端加载备注数据");
+      } catch (e) {
+        console.error("解析后端备注数据失败:", e);
+      }
+    } else {
+      // 后端没有数据，尝试从localStorage迁移
+      migrateLocalRemarksToBackend();
+    }
+  } catch (error) {
+    console.error("从后端加载备注失败:", error);
+    // 失败后回退到localStorage
+    remarksLoaded.value = false;
+  }
+};
+
+// 将本地备注数据迁移到后端
+const migrateLocalRemarksToBackend = async () => {
+  const currentUser = userStore.userInfo?.userName;
+  if (!currentUser) return;
+  
+  const allRemarks = utools.dbStorage.getItem("fishpi_remarks") || {};
+  const localRemarks = allRemarks[currentUser] || {};
+  
+  if (Object.keys(localRemarks).length > 0) {
+    try {
+      const remarksJson = JSON.stringify(localRemarks);
+      userRemarks.value = localRemarks;
+      await userRemarkApi.saveRemark(remarksJson);
+      console.log("已将本地备注数据迁移到后端");
+    } catch (error) {
+      console.error("迁移本地备注数据失败:", error);
+    }
+  }
+  remarksLoaded.value = true;
+};
 
 // 时间分隔阈值（分钟）
 const TIME_SEPARATOR_THRESHOLD_MINUTES = 5;
@@ -1216,7 +1270,9 @@ function handleContextMenuAction(type) {
     return;
   }
   if (type === "remark") {
-    editRemark(contextMenuUser.value);
+    // 通过userName查找对应的userId
+    const targetMsg = props.messages.find(msg => msg.userName === contextMenuUser.value);
+    editRemark(targetMsg?.userId, contextMenuUser.value);
     return;
   }
   if (type === "message") {
@@ -1361,7 +1417,7 @@ function handleMsgContextMenuAction(type) {
       }
     }
   } else if (type === "remark") {
-    editRemark(item.userName);
+    editRemark(item.userId, item.userName);
   } else if (type === "blacklist") {
     addToBlacklist(item.userName, item.userAvatarURL48);
   }
@@ -1825,35 +1881,65 @@ const filterBlacklistMessages = () => {
 };
 
 // 备注相关
-// 获取用户的备注
-const getUserRemark = (userName) => {
+// 获取用户的备注（优先使用后端数据，使用userId作为key）
+const getUserRemark = (userId) => {
   const currentUser = userStore.userInfo?.userName;
-  if (!currentUser) return null;
+  if (!currentUser || !userId) return null;
+  
+  const userIdKey = String(userId);
+  
+  // 优先使用从后端加载的数据
+  if (remarksLoaded.value && userRemarks.value[userIdKey]) {
+    return userRemarks.value[userIdKey];
+  }
+  
+  // 回退到localStorage
   const allRemarks = utools.dbStorage.getItem("fishpi_remarks") || {};
   const remarks = allRemarks[currentUser] || {};
-  return remarks[userName] || null;
+  return remarks[userIdKey] || null;
 };
 
-// 保存用户备注
-const saveUserRemark = (userName, remark) => {
+// 保存用户备注（同步到后端和本地，使用userId作为key）
+const saveUserRemark = async (userId, remark) => {
   const currentUser = userStore.userInfo?.userName;
-  if (!currentUser) return;
+  if (!currentUser || !userId) return;
+  
+  const userIdKey = String(userId);
+  
+  // 更新内存中的备注数据
+  const newRemarks = { ...userRemarks.value };
+  if (remark && remark.trim()) {
+    newRemarks[userIdKey] = remark.trim();
+  } else {
+    delete newRemarks[userIdKey];
+  }
+  userRemarks.value = newRemarks;
+  
+  // 同时更新localStorage作为备份
   const allRemarks = utools.dbStorage.getItem("fishpi_remarks") || {};
   if (!allRemarks[currentUser]) {
     allRemarks[currentUser] = {};
   }
   if (remark && remark.trim()) {
-    allRemarks[currentUser][userName] = remark.trim();
+    allRemarks[currentUser][userIdKey] = remark.trim();
   } else {
-    // 如果备注为空，删除备注
-    delete allRemarks[currentUser][userName];
+    delete allRemarks[currentUser][userIdKey];
   }
   utools.dbStorage.setItem("fishpi_remarks", allRemarks);
+  
+  // 同步保存到后端
+  try {
+    const remarksJson = JSON.stringify(newRemarks);
+    await userRemarkApi.saveRemark(remarksJson);
+  } catch (error) {
+    console.error("保存备注到后端失败:", error);
+  }
 };
 
 // 获取显示名称（如果有备注则显示：用户名 (备注)，如果有昵称但没有备注则显示：昵称，否则只显示用户名）
 const getDisplayName = (item) => {
-  const remark = getUserRemark(item.userName);
+  // 使用userId作为key获取备注
+  const remark = getUserRemark(item.userId);
   if (remark) {
     // 有备注：用户名 (备注)
     return `${item.userName} (${remark})`;
@@ -1866,11 +1952,12 @@ const getDisplayName = (item) => {
   return item.userName;
 };
 
-// 编辑备注
-const editRemark = (userName) => {
-  const currentRemark = getUserRemark(userName);
+// 编辑备注（使用userId作为key）
+const editRemark = async (userId, userName) => {
+  const currentRemark = getUserRemark(userId);
+  const displayName = userName || userId;
   ElMessageBox.prompt(
-    `请输入 ${userName} 的备注`,
+    `请输入 ${displayName} 的备注`,
     "修改备注",
     {
       confirmButtonText: "确定",
@@ -1885,8 +1972,8 @@ const editRemark = (userName) => {
       },
     }
   )
-    .then(({ value }) => {
-      saveUserRemark(userName, value);
+    .then(async ({ value }) => {
+      await saveUserRemark(userId, value);
       if (value && value.trim()) {
         ElMessage.success("备注已保存");
       } else {

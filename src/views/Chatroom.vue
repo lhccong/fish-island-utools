@@ -77,6 +77,16 @@ const convertLegacyImageTags = (input = "") => {
   });
 };
 
+// 将 HTML 中的 <img> 标签转换为 [img]url[/img] 格式
+const convertImgTagsToLegacyFormat = (htmlContent) => {
+  if (!htmlContent || typeof htmlContent !== 'string') return htmlContent;
+  // 使用正则表达式替换所有 <img> 标签为 [img]url[/img] 格式
+  let result = htmlContent.replace(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi, (match, src) => {
+    return `[img]${src}[/img]`;
+  });
+  return result;
+};
+
 // 兼容旧格式的 [redpacket]id[/redpacket] 标记，转换为 JSON 格式
 const convertLegacyRedPacketTags = (input = "") => {
   if (typeof input !== "string" || !input) {
@@ -1105,7 +1115,9 @@ const handleAtUser = (userName) => {
 // 处理+1按钮
 const handleSendSameMessage = (content) => {
   if (!content) return;
-  handleSendMessage(content);
+  // 将HTML img标签转换为[img]格式
+  const legacyContent = convertImgTagsToLegacyFormat(content);
+  handleSendMessage(legacyContent);
 };
 
 
