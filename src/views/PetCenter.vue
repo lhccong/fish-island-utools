@@ -44,6 +44,7 @@
                     }"
                     :title="getEquippedItem(slot.key)?.template?.name || slot.label"
                     @click="onSlotClick(slot.key)"
+                    @contextmenu.prevent="onSlotContextMenu($event, slot.key)"
                   >
                     <img
                       v-if="getEquippedItem(slot.key)?.template?.icon"
@@ -53,6 +54,7 @@
                     />
                     <span v-else>{{ slot.icon }}</span>
                     <span class="slot-label">{{ slot.label }}</span>
+                    <span v-if="getEnhanceLevel(slot.key) > 0" class="enhance-level-badge">+{{ getEnhanceLevel(slot.key) }}</span>
                   </div>
                 </div>
                 <div class="pet-preview">
@@ -70,6 +72,7 @@
                     }"
                     :title="getEquippedItem(slot.key)?.template?.name || slot.label"
                     @click="onSlotClick(slot.key)"
+                    @contextmenu.prevent="onSlotContextMenu($event, slot.key)"
                   >
                     <img
                       v-if="getEquippedItem(slot.key)?.template?.icon"
@@ -79,9 +82,11 @@
                     />
                     <span v-else>{{ slot.icon }}</span>
                     <span class="slot-label">{{ slot.label }}</span>
+                    <span v-if="getEnhanceLevel(slot.key) > 0" class="enhance-level-badge">+{{ getEnhanceLevel(slot.key) }}</span>
                   </div>
                 </div>
               </div>
+              <div class="forge-hint">左键卸下装备，右键打开锻造</div>
             </div>
 
             <div class="pet-right-panel">
@@ -355,6 +360,56 @@
         </div>
       </div>
     </div>
+    <el-dialog v-model="forgeModalVisible" :title="`装备锻造 - ${forgeSlotName}`" width="520px">
+      <div v-loading="forgeDetailLoading">
+        <template v-if="forgeDetail">
+          <div class="forge-header">
+            <span>装备等级：<el-tag type="primary">Lv.{{ forgeDetail.equipLevel ?? 0 }}</el-tag></span>
+            <el-tag v-if="forgeDetail.maxLevel" type="warning">已达最高等级</el-tag>
+          </div>
+          <div class="forge-entry-list">
+            <div
+              v-for="entry in forgeEntries"
+              :key="entry.index"
+              class="forge-entry-item"
+              :class="{ locked: isEntryLocked(entry.index) }"
+            >
+              <div class="forge-entry-left">
+                <el-tag :style="{ backgroundColor: entryGradeColor(entry.data?.grade), color: '#fff', border: 'none' }">
+                  {{ entryGradeName(entry.data?.grade) }}
+                </el-tag>
+                <span class="forge-entry-attr">{{ entryAttrName(entry.data?.attr) }}</span>
+                <span class="forge-entry-value">{{ formatEntryValue(entry.data?.attr, entry.data?.value) }}</span>
+              </div>
+              <el-button
+                size="small"
+                :loading="forgeLockLoading"
+                :type="isEntryLocked(entry.index) ? 'warning' : 'default'"
+                @click="toggleEntryLock(entry.index)"
+              >
+                {{ isEntryLocked(entry.index) ? "已锁定" : "锁定" }}
+              </el-button>
+            </div>
+            <div v-if="forgeEntries.length === 0" class="empty-text">暂无词条，升级后解锁</div>
+          </div>
+          <div v-if="!forgeDetail.maxLevel" class="forge-upgrade-box">
+            <div>
+              升级消耗 <strong>{{ forgeDetail.nextUpgradeCost ?? 0 }}</strong> 积分，
+              成功率 <strong>{{ forgeDetail.successRate ?? 0 }}%</strong>
+            </div>
+            <el-button type="primary" :loading="forgeUpgradeLoading" @click="handleForgeUpgrade">
+              升级强化
+            </el-button>
+          </div>
+          <div class="forge-refresh-box">
+            刷新词条消耗 100 积分；每锁定一条额外 +50 积分，锁定词条不会刷新
+            <el-button :loading="forgeRefreshLoading" @click="handleForgeRefresh">刷新词条</el-button>
+          </div>
+        </template>
+        <el-empty v-else description="暂无强化数据，请先穿戴装备" />
+      </div>
+    </el-dialog>
+
     <el-dialog v-model="otherPetVisible" title="TA 的宠物" width="500px">
       <div v-loading="otherPetLoading" class="other-pet-content">
         <template v-if="otherPetInfo">
@@ -377,6 +432,7 @@ import { petApi } from "../api/pet";
 import { userApi } from "../api/user";
 import { itemInstancesApi } from "../api/itemInstances";
 import { petSkinApi } from "../api/petSkin";
+import { petEquipForgeApi } from "../api/petEquipForge";
 import BossBattle from "./BossBattle.vue";
 import Lottery from "./Lottery.vue";
 
@@ -408,6 +464,15 @@ const skinLoading = ref(false);
 const skins = ref([]);
 const exchangeLoadingId = ref(null);
 const setSkinLoadingId = ref(null);
+const forgeModalVisible = ref(false);
+const forgeSlot = ref(null);
+const forgeSlotName = ref("");
+const forgeDetail = ref(null);
+const forgeDetailLoading = ref(false);
+const forgeUpgradeLoading = ref(false);
+const forgeRefreshLoading = ref(false);
+const forgeLockLoading = ref(false);
+const lockedEntries = ref([]);
 /** 与前端 MoyuPet 一致：商店内「宠物商店 | 道具商店」 */
 const shopSubType = ref("skin");
 
@@ -526,6 +591,90 @@ const slotLabels = {
 };
 
 const slotLabel = (slot) => slotLabels[slot] || slot;
+const slotNameToNumber = {
+  weapon: 1,
+  hand: 2,
+  foot: 3,
+  head: 4,
+  necklace: 5,
+};
+
+const entryGradeColorMap = {
+  1: "#8c8c8c",
+  2: "#1890ff",
+  3: "#722ed1",
+  4: "#fa8c16",
+  5: "#f5222d",
+};
+
+const entryGradeNameMap = {
+  1: "白",
+  2: "蓝",
+  3: "紫",
+  4: "金",
+  5: "红",
+};
+
+const percentAttrs = [
+  "critRate",
+  "critResistance",
+  "antiCrit",
+  "dodgeRate",
+  "dodgeResistance",
+  "antiDodge",
+  "comboRate",
+  "comboResistance",
+  "antiCombo",
+  "blockRate",
+  "blockResistance",
+  "antiBlock",
+  "lifesteal",
+  "lifestealResistance",
+  "antiLifesteal",
+];
+
+const entryAttrNames = {
+  attack: "攻击力",
+  defense: "防御力",
+  hp: "生命值",
+  maxHp: "生命值",
+  speed: "速度",
+  critRate: "暴击率",
+  critResistance: "暴击抗性",
+  antiCrit: "暴击抗性",
+  dodgeRate: "闪避率",
+  dodgeResistance: "闪避抗性",
+  antiDodge: "闪避抗性",
+  comboRate: "连击率",
+  comboResistance: "连击抗性",
+  antiCombo: "连击抗性",
+  blockRate: "格挡率",
+  blockResistance: "格挡抗性",
+  antiBlock: "格挡抗性",
+  lifesteal: "生命偷取",
+  lifestealResistance: "吸血抗性",
+  antiLifesteal: "吸血抗性",
+};
+
+const forgeEntries = computed(() => {
+  const detail = forgeDetail.value || {};
+  const list = [detail.entry1, detail.entry2, detail.entry3, detail.entry4];
+  return list
+    .map((entry, idx) => ({ index: idx + 1, data: entry }))
+    .filter((item) => !!item.data);
+});
+
+const getEnhanceLevel = (slot) => Number(getEquippedItem(slot)?.enhanceLevel || 0);
+const entryGradeColor = (grade) => entryGradeColorMap[grade] || "#8c8c8c";
+const entryGradeName = (grade) => entryGradeNameMap[grade] || "白";
+const entryAttrName = (attr) => entryAttrNames[attr] || attr || "未知";
+const isPercentAttr = (attr) => percentAttrs.includes(attr);
+const isEntryLocked = (index) => lockedEntries.value.includes(index);
+const formatEntryValue = (attr, value) => {
+  const n = Number(value || 0);
+  if (isPercentAttr(attr)) return `${Number((n * 100).toFixed(2))}%`;
+  return `+${n}`;
+};
 
 const rarityBorderClass = (rarity) => {
   const r = Number(rarity) || 1;
@@ -581,6 +730,131 @@ const getEquippedItem = (slot) => {
 const onSlotClick = (slot) => {
   if (!getEquippedItem(slot)) return;
   handleUnequipItem(slot);
+};
+
+const openForgeModal = async (slot) => {
+  const petId = getPetId();
+  const slotNum = slotNameToNumber[slot];
+  if (!petId || !slotNum) return;
+  forgeSlot.value = slotNum;
+  forgeSlotName.value = slotLabel(slot);
+  forgeModalVisible.value = true;
+  forgeDetail.value = null;
+  lockedEntries.value = [];
+  forgeDetailLoading.value = true;
+  try {
+    const res = await petEquipForgeApi.getForgeDetail({ petId, equipSlot: slotNum });
+    if (res?.code === 0 && res?.data) {
+      forgeDetail.value = res.data;
+      const entries = [res.data.entry1, res.data.entry2, res.data.entry3, res.data.entry4];
+      lockedEntries.value = entries
+        .map((entry, idx) => (entry?.locked ? idx + 1 : null))
+        .filter((v) => v !== null);
+    } else {
+      ElMessage.error(res?.message || "获取锻造详情失败");
+    }
+  } catch (error) {
+    console.error("获取锻造详情失败:", error);
+    ElMessage.error("获取锻造详情失败");
+  } finally {
+    forgeDetailLoading.value = false;
+  }
+};
+
+const onSlotContextMenu = (event, slot) => {
+  if (!getEquippedItem(slot)) return;
+  event.preventDefault();
+  openForgeModal(slot);
+};
+
+const handleForgeUpgrade = async () => {
+  const petId = getPetId();
+  if (!petId || !forgeSlot.value) return;
+  forgeUpgradeLoading.value = true;
+  try {
+    const res = await petEquipForgeApi.upgradeEquip({ petId, equipSlot: forgeSlot.value });
+    if (res?.code === 0) {
+      ElMessage[res?.data ? "success" : "warning"](res?.data ? "升级成功！" : "升级失败，运气不佳");
+      const detailRes = await petEquipForgeApi.getForgeDetail({ petId, equipSlot: forgeSlot.value });
+      if (detailRes?.code === 0 && detailRes?.data) {
+        forgeDetail.value = detailRes.data;
+      }
+      await loadPetDetail();
+    } else {
+      ElMessage.error(res?.message || "升级失败");
+    }
+  } catch (error) {
+    console.error("装备升级失败:", error);
+    ElMessage.error("装备升级失败");
+  } finally {
+    forgeUpgradeLoading.value = false;
+  }
+};
+
+const handleForgeRefresh = async () => {
+  const petId = getPetId();
+  if (!petId || !forgeSlot.value) return;
+  forgeRefreshLoading.value = true;
+  try {
+    const res = await petEquipForgeApi.refreshEntries({ petId, equipSlot: forgeSlot.value });
+    if (res?.code === 0 && res?.data) {
+      ElMessage.success("词条刷新成功");
+      forgeDetail.value = {
+        ...(forgeDetail.value || {}),
+        entry1: res.data.entry1,
+        entry2: res.data.entry2,
+        entry3: res.data.entry3,
+        entry4: res.data.entry4,
+      };
+      const entries = [res.data.entry1, res.data.entry2, res.data.entry3, res.data.entry4];
+      lockedEntries.value = entries
+        .map((entry, idx) => (entry?.locked ? idx + 1 : null))
+        .filter((v) => v !== null);
+    } else {
+      ElMessage.error(res?.message || "刷新失败");
+    }
+  } catch (error) {
+    console.error("刷新词条失败:", error);
+    ElMessage.error("刷新词条失败");
+  } finally {
+    forgeRefreshLoading.value = false;
+  }
+};
+
+const toggleEntryLock = async (entryIndex) => {
+  const petId = getPetId();
+  if (!petId || !forgeSlot.value || forgeLockLoading.value) return;
+  const nextLocked = isEntryLocked(entryIndex)
+    ? lockedEntries.value.filter((v) => v !== entryIndex)
+    : [...lockedEntries.value, entryIndex];
+  forgeLockLoading.value = true;
+  try {
+    const res = await petEquipForgeApi.lockEntries({
+      petId,
+      equipSlot: forgeSlot.value,
+      lockedEntries: nextLocked,
+    });
+    if (res?.code === 0 && res?.data) {
+      const entries = [res.data.entry1, res.data.entry2, res.data.entry3, res.data.entry4];
+      lockedEntries.value = entries
+        .map((entry, idx) => (entry?.locked ? idx + 1 : null))
+        .filter((v) => v !== null);
+      forgeDetail.value = {
+        ...(forgeDetail.value || {}),
+        entry1: res.data.entry1,
+        entry2: res.data.entry2,
+        entry3: res.data.entry3,
+        entry4: res.data.entry4,
+      };
+    } else {
+      ElMessage.error(res?.message || "锁定失败");
+    }
+  } catch (error) {
+    console.error("锁定词条失败:", error);
+    ElMessage.error("锁定词条失败");
+  } finally {
+    forgeLockLoading.value = false;
+  }
 };
 
 const isEquipped = (itemId) => {
@@ -1034,6 +1308,7 @@ onMounted(async () => {
   gap: 2px;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .equip-slot-card:hover {
@@ -1059,6 +1334,28 @@ onMounted(async () => {
 .slot-label {
   font-size: 10px;
   color: #777;
+}
+
+.enhance-level-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  border: 2px solid #fff;
+  background: linear-gradient(135deg, #ff6f00 0%, #ff1744 100%);
+  line-height: 1;
+  z-index: 2;
+}
+
+.forge-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #a16207;
+  text-align: center;
 }
 
 .pet-preview {
@@ -1136,6 +1433,71 @@ onMounted(async () => {
   height: 3px;
   border-radius: 2px;
   background: linear-gradient(90deg, #ffa768 0%, #f97316 100%);
+}
+
+.forge-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.forge-entry-list {
+  margin-bottom: 12px;
+}
+
+.forge-entry-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+
+.forge-entry-item.locked {
+  border-color: #fa8c16;
+  background: #fff7e6;
+}
+
+.forge-entry-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.forge-entry-attr {
+  font-weight: 500;
+  color: #303133;
+}
+
+.forge-entry-value {
+  font-weight: 700;
+  color: #67c23a;
+}
+
+.forge-upgrade-box {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f0f9eb;
+  border: 1px solid #c2e7b0;
+  display: grid;
+  gap: 8px;
+}
+
+.forge-refresh-box {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #ecf5ff;
+  border: 1px solid #b3d8ff;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: #606266;
 }
 
 .pet-inner-tabs :deep(.el-tabs__content) {

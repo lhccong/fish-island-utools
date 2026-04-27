@@ -1,11 +1,14 @@
 <template>
   <div class="chatroom-container">
     <div class="chat-area" :class="{ 'full-width': !showSidebar }">
+      <button class="chatroom-fullscreen-btn" @click="toggleChatroomFullscreen">
+        {{ isChatroomFullscreen ? "退出全屏" : "全屏" }}
+      </button>
       <!-- 聊天头部组件 -->
-      <ChatHeader />
+      <ChatHeader v-if="showChatHeader" />
       <!-- 消息列表组件 -->
       <MessageList :messages="messages" :is-loading-more="isLoadingMore" :has-more-messages="hasMoreMessages"
-        :show-sidebar="showSidebar" @load-more="handleLoadMore" @at-user="handleAtUser"
+        :show-sidebar="showSidebar" :hide-images="hideImages" :show-avatars="showAvatars" @load-more="handleLoadMore" @at-user="handleAtUser"
         @send-same-message="handleSendSameMessage" @quote="handleQuote" @add-emoji="handleAddEmoji"
         @update-messages="handleUpdateMessages" />
       <!-- 消息输入组件 -->
@@ -13,12 +16,17 @@
         @select-emoji="handleSelectEmoji" @select-image="handleSelectImage" @send-red-packet="handleSendRedPacket" />
     </div>
     <!-- 侧边栏切换按钮 -->
-    <div class="sidebar-toggle" :class="{ 'sidebar-hidden': !showSidebar }" @click="toggleSidebar">
+    <div
+      v-if="!isChatroomFullscreen"
+      class="sidebar-toggle"
+      :class="{ 'sidebar-hidden': !showSidebar }"
+      @click="toggleSidebar"
+    >
       <i :class="showSidebar ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
     </div>
-    <div class="sidebar" v-show="showSidebar">
+    <div class="sidebar" v-show="showSidebar && !isChatroomFullscreen">
       <!-- 侧边栏组件 -->
-      <Sidebar :online-users="onlineUsers" />
+      <Sidebar :online-users="onlineUsers" :show-avatars="showAvatars" />
     </div>
   </div>
 </template>
@@ -56,6 +64,11 @@ const onlineUsers = ref([]);
 
 // 侧边栏状态
 const showSidebar = ref(true);
+const hideImages = ref(false);
+const showAvatars = ref(true);
+const showChatHeader = ref(true);
+const isChatroomFullscreen = ref(false);
+const sidebarStateBeforeFullscreen = ref(true);
 
 const bells = ref([])
 
@@ -252,6 +265,24 @@ const saveUserSettings = (settings) => {
   }
 
   utools.dbStorage.setItem("fishpi_settings", savedSettings);
+};
+
+const toggleChatroomFullscreen = () => {
+  if (!isChatroomFullscreen.value) {
+    sidebarStateBeforeFullscreen.value = showSidebar.value;
+    showSidebar.value = false;
+    isChatroomFullscreen.value = true;
+  } else {
+    isChatroomFullscreen.value = false;
+    showSidebar.value = sidebarStateBeforeFullscreen.value;
+  }
+
+  saveUserSettings({ chatroomFullscreen: isChatroomFullscreen.value });
+  window.dispatchEvent(
+    new CustomEvent("fishpi:chatroom-fullscreen-changed", {
+      detail: { enabled: isChatroomFullscreen.value },
+    })
+  );
 };
 
 // 获取当前用户黑名单
@@ -1192,6 +1223,15 @@ const handleAccountSwitch = async () => {
   // 重新获取侧边栏状态
   const userSettings = getUserSettings();
   showSidebar.value = !userSettings.defaultChatSidebarCollapsed;
+  const oldSpeedMode = userSettings.chatSpeedMode === true;
+  hideImages.value = userSettings.chatHideImages ?? oldSpeedMode;
+  showAvatars.value = userSettings.chatShowAvatars ?? !oldSpeedMode;
+  showChatHeader.value = userSettings.chatShowHeader !== false;
+  isChatroomFullscreen.value = userSettings.chatroomFullscreen === true;
+  if (isChatroomFullscreen.value) {
+    sidebarStateBeforeFullscreen.value = showSidebar.value;
+    showSidebar.value = false;
+  }
 };
 
 // 监听黑名单更新事件
@@ -1627,6 +1667,15 @@ onMounted(() => {
   // 从设置中获取侧边栏状态
   const userSettings = getUserSettings();
   showSidebar.value = !userSettings.defaultChatSidebarCollapsed;
+  const oldSpeedMode = userSettings.chatSpeedMode === true;
+  hideImages.value = userSettings.chatHideImages ?? oldSpeedMode;
+  showAvatars.value = userSettings.chatShowAvatars ?? !oldSpeedMode;
+  showChatHeader.value = userSettings.chatShowHeader !== false;
+  isChatroomFullscreen.value = userSettings.chatroomFullscreen === true;
+  if (isChatroomFullscreen.value) {
+    sidebarStateBeforeFullscreen.value = showSidebar.value;
+    showSidebar.value = false;
+  }
 
   // 获取在线用户列表
   fetchOnlineUsers();
@@ -1679,6 +1728,27 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;
+  position: relative;
+}
+
+.chatroom-fullscreen-btn {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 20;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.chatroom-fullscreen-btn:hover {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 .chat-area.full-width {

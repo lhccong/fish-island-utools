@@ -40,6 +40,13 @@
             通知设置
           </li>
           <li
+            :class="{ active: activeGroup === 'chatroom' }"
+            @click="activeGroup = 'chatroom'"
+          >
+            <i class="fas fa-comments"></i>
+            聊天室设置
+          </li>
+          <li
             :class="{ active: activeGroup === 'moyu' }"
             @click="activeGroup = 'moyu'"
           >
@@ -282,6 +289,82 @@
             </div>
           </div>
         </div>
+        <div v-show="activeGroup === 'chatroom'">
+          <div class="data-card">
+            <div class="card-header">
+              <h2>聊天室设置</h2>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-left">
+                <div class="settings-item-title">
+                  <span>聊天室隐藏图片</span>
+                  <el-tooltip
+                    content="开启后消息中的图片默认折叠，点击后再展开"
+                    placement="top"
+                    effect="dark"
+                  >
+                    <i class="fas fa-question-circle"></i>
+                  </el-tooltip>
+                </div>
+              </div>
+              <div class="settings-item-right">
+                <el-switch
+                  v-model="chatHideImages"
+                  @change="handleChatHideImagesChange"
+                  active-text="开启"
+                  inactive-text="关闭"
+                  inline-prompt
+                />
+              </div>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-left">
+                <div class="settings-item-title">
+                  <span>聊天室显示头像</span>
+                  <el-tooltip
+                    content="关闭后隐藏消息区和在线列表头像"
+                    placement="top"
+                    effect="dark"
+                  >
+                    <i class="fas fa-question-circle"></i>
+                  </el-tooltip>
+                </div>
+              </div>
+              <div class="settings-item-right">
+                <el-switch
+                  v-model="chatShowAvatars"
+                  @change="handleChatShowAvatarsChange"
+                  active-text="显示"
+                  inactive-text="隐藏"
+                  inline-prompt
+                />
+              </div>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-left">
+                <div class="settings-item-title">
+                  <span>聊天室显示标题栏</span>
+                  <el-tooltip
+                    content="关闭后隐藏聊天室顶部标题（摸鱼岛聊天室）"
+                    placement="top"
+                    effect="dark"
+                  >
+                    <i class="fas fa-question-circle"></i>
+                  </el-tooltip>
+                </div>
+              </div>
+              <div class="settings-item-right">
+                <el-switch
+                  v-model="chatShowHeader"
+                  @change="handleChatShowHeaderChange"
+                  active-text="显示"
+                  inactive-text="隐藏"
+                  inline-prompt
+                />
+              </div>
+            </div>
+          </div>
+        </div>
         <div v-show="activeGroup === 'moyu'">
           <div class="data-card">
             <div class="card-header">
@@ -418,6 +501,9 @@ const restDays = ref([]);
 const defaultPage = ref("dashboard");
 const enableBackgroundNotification = ref(true);
 const defaultChatSidebarState = ref(false);
+const chatHideImages = ref(false);
+const chatShowAvatars = ref(true);
+const chatShowHeader = ref(true);
 const currentTheme = ref("auto");
 const salary = ref(5000);
 const payday = ref(1);
@@ -492,6 +578,10 @@ onMounted(() => {
     userSettings.enableBackgroundNotification !== false; // 默认开启
   defaultChatSidebarState.value =
     userSettings.defaultChatSidebarCollapsed || false;
+  const oldSpeedMode = userSettings.chatSpeedMode === true;
+  chatHideImages.value = userSettings.chatHideImages ?? oldSpeedMode;
+  chatShowAvatars.value = userSettings.chatShowAvatars ?? !oldSpeedMode;
+  chatShowHeader.value = userSettings.chatShowHeader !== false;
   currentTheme.value = userSettings.currentTheme || "auto";
   salary.value = userSettings.salary || 0;
   payday.value = userSettings.payday || 1;
@@ -519,6 +609,10 @@ onMounted(() => {
       userSettings.enableBackgroundNotification !== false;
     defaultChatSidebarState.value =
       userSettings.defaultChatSidebarCollapsed || false;
+    const oldSpeedMode = userSettings.chatSpeedMode === true;
+    chatHideImages.value = userSettings.chatHideImages ?? oldSpeedMode;
+    chatShowAvatars.value = userSettings.chatShowAvatars ?? !oldSpeedMode;
+    chatShowHeader.value = userSettings.chatShowHeader !== false;
     currentTheme.value = userSettings.currentTheme || "auto";
     salary.value = userSettings.salary || 0;
     payday.value = userSettings.payday || 1;
@@ -633,6 +727,39 @@ const handleChatSidebarStateChange = (value) => {
 
   ElMessage({
     message: "聊天室侧边栏状态已更新",
+    type: "success",
+    duration: 2000,
+    showClose: true,
+  });
+};
+
+const handleChatHideImagesChange = (value) => {
+  saveUserSettings({ chatHideImages: value });
+
+  ElMessage({
+    message: "聊天室隐藏图片设置已更新",
+    type: "success",
+    duration: 2000,
+    showClose: true,
+  });
+};
+
+const handleChatShowAvatarsChange = (value) => {
+  saveUserSettings({ chatShowAvatars: value });
+
+  ElMessage({
+    message: "聊天室头像显示设置已更新",
+    type: "success",
+    duration: 2000,
+    showClose: true,
+  });
+};
+
+const handleChatShowHeaderChange = (value) => {
+  saveUserSettings({ chatShowHeader: value });
+
+  ElMessage({
+    message: "聊天室标题栏显示设置已更新",
     type: "success",
     duration: 2000,
     showClose: true,

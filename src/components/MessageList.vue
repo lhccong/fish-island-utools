@@ -2,7 +2,7 @@
   <div class="message-list" ref="messageListRef" @scroll="handleScroll">
     <!-- 弹幕容器 -->
     <div class="barrager-container">
-      <div v-for="(barrager, index) in barragers" :key="barrager.id" class="barrager-item" :style="{
+      <div v-for="barrager in barragers" :key="barrager.id" class="barrager-item" :style="{
         top: barrager.top + 'px',
         animationDuration: barrager.duration + 's',
         color: barrager.color,
@@ -27,7 +27,7 @@
     </div>
 
     <div class="messages">
-      <template v-for="(item, index) in groupedMessages" :key="item.oId || 'separator-' + index">
+      <template v-for="item in groupedMessages" :key="item.oId || item._key">
         <!-- 时间分隔符 -->
         <div v-if="item.type === 'time-separator'" class="time-separator">
           {{ item.timestamp }}
@@ -56,13 +56,19 @@
           'message-row-self': item.userName === userStore.userInfo?.userName,
           'message-row-mentioned': isMentionedMessage(item),
         }">
-          <img :src="item.userAvatarURL48" alt="avatar" class="message-avatar"
-            @click="openUserInfoCard(item.userId, item.userName, $event)" @contextmenu.prevent="
+          <img v-if="showAvatars" :src="item.userAvatarURL48" alt="avatar" class="message-avatar"
+            @click="openUserInfoCard(item.userId, item.userName, $event, item)" @contextmenu.prevent="
               onAvatarContextMenu($event, item.userName, item.userAvatarURL48)
               " />
           <div class="message-bubble">
             <div class="message-header" v-if="item.userName !== userStore.userInfo?.userName">
-              <span class="user-nickname">
+              <span
+                class="user-nickname at-clickable"
+                @click="openUserInfoCard(item.userId, item.userName, $event, item)"
+                @contextmenu.prevent="
+                  onAvatarContextMenu($event, item.userName, item.userAvatarURL48)
+                "
+              >
                 {{
                   getDisplayName(item)
                 }}
@@ -177,7 +183,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="message-text" v-else v-html="item.content"
+                <div class="message-text" v-else v-html="getProcessedMessageContent(item)"
                   @contextmenu.prevent="onMsgContextMenu($event, item)" @load="handleImageLoad"></div>
                 <!-- +1按钮移动到气泡右侧 -->
                 <button v-if="item.isGrouped" class="plus-one-btn" @click="sendSameMessage(item.content)">
@@ -185,7 +191,7 @@
                 </button>
               </div>
               <!-- 合并消息头像和人数，显示所有头像 -->
-              <div v-if="item.isGrouped" class="grouped-users">
+              <div v-if="item.isGrouped && showAvatars" class="grouped-users">
                 <img v-for="user in item.groupUsers" :key="user.userName" :src="user.userAvatarURL48"
                   class="group-avatar" />
                 <span v-if="item.groupUsers.length > 2">{{ item.groupUsers.length }}人+1</span>
@@ -297,6 +303,14 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  hideImages: {
+    type: Boolean,
+    default: false,
+  },
+  showAvatars: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const emit = defineEmits([
@@ -320,6 +334,9 @@ const isReceiving = ref(false);
 const router = useRouter();
 const isPageVisible = ref(true);
 const bells = ref([]);
+const expandedImages = ref(new Set());
+const hideImages = computed(() => props.hideImages === true);
+const showAvatars = computed(() => props.showAvatars !== false);
 
 // 用户备注状态（从后端加载）
 const userRemarks = ref({});
@@ -656,6 +673,15 @@ watch(
     }
   },
   { deep: true }
+);
+
+watch(
+  () => props.hideImages,
+  (enabled) => {
+    if (!enabled) {
+      expandedImages.value = new Set();
+    }
+  }
 );
 
 // 修改 scrollToBottom 函数
@@ -1184,9 +1210,13 @@ const formatRecordTime = (time) => {
   return dayjs(time).format("YYYY-MM-DD HH:mm:ss");
 };
 
-// 查看用户信息
-const showUserProfile = (userName) => {
-  router.push(`/user/${userName}`);
+// 查看用户信息（优先使用 userId，保证能取到积分/签名等）
+const showUserProfile = (userId, userName) => {
+  const identifier =
+    userId === null || typeof userId === "undefined" || userId === ""
+      ? userName
+      : String(userId);
+  router.push(`/user/${identifier}`);
 };
 
 // 用户信息卡片弹窗
@@ -1195,11 +1225,13 @@ const selectedUserId = ref(null);
 const selectedUserName = ref("");
 const userInfoCardX = ref(0);
 const userInfoCardY = ref(0);
+const selectedUserSourceMessage = ref(null);
 
-const openUserInfoCard = (userId, userName, event) => {
+const openUserInfoCard = (userId, userName, event, sourceMessage = null) => {
   selectedUserId.value =
     userId === null || typeof userId === "undefined" ? null : String(userId);
   selectedUserName.value = userName;
+  selectedUserSourceMessage.value = sourceMessage;
 
   const cardWidth = 320; // 估算卡片宽度
   const cardHeight = 450; // 估算卡片高度
@@ -1230,12 +1262,66 @@ const closeUserInfoCard = () => {
   showUserInfoModal.value = false;
   selectedUserId.value = null;
   selectedUserName.value = "";
+  selectedUserSourceMessage.value = null;
 };
 
 // 用户信息卡片操作
 const handleUserDetail = (userName) => {
+  // 把“点详情时关联的那条消息”按 WS 结构写入缓存，供 UserProfile 页面渲染
+  try {
+    const m = selectedUserSourceMessage.value;
+    if (m) {
+      const wsPayload = {
+        type: "chat",
+        data: {
+          message: {
+            id: String(m.id ?? m.oId ?? m._key ?? ""),
+            content: m.content ?? "",
+            sender: {
+              id: m.userId ?? m.senderId ?? m.sender?.id ?? "",
+              name: m.userName ?? m.senderName ?? m.sender?.name ?? "",
+              avatar:
+                m.userAvatarURL48 ??
+                m.userAvatarURL ??
+                m.userAvatar ??
+                m.senderAvatar ??
+                m.sender?.avatar ??
+                "",
+              points: m.points ?? m.userPoint ?? m.sender?.points,
+              level: m.level ?? m.sender?.level,
+              avatarFramerUrl: m.avatarFramerUrl ?? m.sender?.avatarFramerUrl,
+              titleId: m.titleId ?? m.sender?.titleId,
+              titleIdList: m.titleIdList ?? m.sender?.titleIdList,
+              isAdmin: m.isAdmin ?? m.sender?.isAdmin,
+              isVip: m.isVip ?? m.sender?.isVip,
+              region: m.region ?? m.sender?.region,
+              country: m.country ?? m.sender?.country,
+            },
+            timestamp:
+              m.time ??
+              m.timestamp ??
+              m.sentAt ??
+              m.sentTime ??
+              m.createdAt ??
+              m.createTime ??
+              "",
+          },
+        },
+      };
+      if (typeof utools !== "undefined") {
+        utools.dbStorage.setItem("user-profile-ws-message", wsPayload);
+      }
+    }
+  } catch (e) {
+    console.error("写入 user-profile-ws-message 失败:", e);
+  }
+
   closeUserInfoCard();
-  router.push(`/user/${userName}`);
+  const identifier =
+    selectedUserId.value === null || typeof selectedUserId.value === "undefined" || selectedUserId.value === ""
+      ? userName
+      : String(selectedUserId.value);
+  router.push(`/user/${identifier}`);
 };
 const handleUserMessage = (userName) => {
   closeUserInfoCard();
@@ -1461,6 +1547,17 @@ let previewWindow = null;
 
 // 处理图片点击
 const handleImageClick = async (e) => {
+  const placeholder = e.target?.closest?.(".speed-image-placeholder");
+  if (placeholder) {
+    const imageUrl = placeholder.getAttribute("data-image-url");
+    if (imageUrl) {
+      const next = new Set(expandedImages.value);
+      next.add(imageUrl);
+      expandedImages.value = next;
+    }
+    return;
+  }
+
   if (e.target.tagName === "IMG") {
     const imgSrc = e.target.src;
     // 收集所有图片，包括消息中的图片和引用消息中的图片
@@ -1701,6 +1798,46 @@ const processQuotedMessageContent = (content) => {
   return processedContent;
 };
 
+const escapeAttribute = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+const getImageSrcFromHtmlTag = (imgTag = "") => {
+  const srcMatch = imgTag.match(/\ssrc=["']([^"']+)["']/i);
+  return srcMatch ? srcMatch[1] : "";
+};
+
+const buildImagePlaceholderHtml = (imageUrl) => {
+  const escapedUrl = escapeAttribute(imageUrl);
+  return `
+    <div class="speed-image-placeholder" data-image-url="${escapedUrl}">
+      <i class="fas fa-image"></i>
+      <span>点击展开图片</span>
+    </div>
+  `.trim();
+};
+
+const processSpeedModeContent = (content) => {
+  if (!hideImages.value || !content || typeof content !== "string") {
+    return content;
+  }
+  return content.replace(/<img[^>]*>/gi, (imgTag) => {
+    const imageUrl = getImageSrcFromHtmlTag(imgTag);
+    if (!imageUrl) return imgTag;
+    if (expandedImages.value.has(imageUrl)) return imgTag;
+    return buildImagePlaceholderHtml(imageUrl);
+  });
+};
+
+const getProcessedMessageContent = (item) => {
+  const content = item?.content || "";
+  return processSpeedModeContent(content);
+};
+
 // 检查引用消息是否是红包
 const isQuotedMessageRedPacket = (quotedMessage) => {
   if (!quotedMessage || !quotedMessage.content) return false;
@@ -1716,7 +1853,8 @@ const isQuotedMessageImage = (quotedMessage) => {
 // 获取处理后的引用消息内容（用于渲染）
 const getProcessedQuotedMessageContent = (quotedMessage) => {
   if (!quotedMessage || !quotedMessage.content) return '';
-  return processQuotedMessageContent(quotedMessage.content);
+  const processed = processQuotedMessageContent(quotedMessage.content);
+  return processSpeedModeContent(processed);
 };
 
 // 解析引用消息中的红包（用于在引用消息中显示红包信息）
@@ -1990,6 +2128,7 @@ const editRemark = async (userId, userName) => {
 .message-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 10px;
   background-color: var(--chatroom-bg);
 
@@ -1998,6 +2137,7 @@ const editRemark = async (userId, userName) => {
 .messages {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .message-row {
@@ -2005,6 +2145,7 @@ const editRemark = async (userId, userName) => {
   align-items: flex-start;
   margin-bottom: 16px;
   position: relative;
+  min-width: 0;
 }
 
 .message-row-self {
@@ -2073,6 +2214,7 @@ const editRemark = async (userId, userName) => {
   min-width: 60px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .message-row-self .message-bubble {
@@ -2099,6 +2241,10 @@ const editRemark = async (userId, userName) => {
   color: var(--text-color);
   margin: 0 6px;
   font-size: 13px;
+}
+
+.at-clickable {
+  cursor: pointer;
 }
 
 .mention-icon {
@@ -2256,6 +2402,19 @@ const editRemark = async (userId, userName) => {
   margin: 4px 0;
   cursor: pointer;
   display: block;
+}
+
+.message-text :deep(.speed-image-placeholder) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--hover-bg);
+  color: var(--sub-text-color);
+  cursor: pointer;
+  user-select: none;
 }
 
 .message-text :deep(blockquote) {

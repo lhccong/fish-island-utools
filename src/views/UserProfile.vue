@@ -12,133 +12,87 @@
 
     <!-- 可滚动内容区域 -->
     <div class="scrollable-content">
-      <!-- 用户信息区 -->
-      <div
-        class="user-header"
-        :style="{ backgroundImage: `url(${userInfo?.cardBg})` }"
-      >
-        <div class="user-info">
-          <div class="avatar">
-            <img :src="userInfo?.userAvatarURL" :alt="userInfo?.userNickname" />
-            <span v-if="userInfo?.userRole" class="role-tag">{{
-              userInfo.userRole
-            }}</span>
-          </div>
-          <div class="info">
-            <h2>{{ userInfo?.userNickname }}</h2>
-            <p class="username">@{{ userInfo?.userName }}</p>
-            <p class="user-no">摸鱼岛第 {{ userInfo?.userNo }} 号成员</p>
-            <p v-if="userInfo?.userCity" class="location">
-              <i class="fas fa-map-marker-alt"></i>
-              {{ userInfo.userCity }}
-            </p>
-          </div>
-          <div v-if="!isCurrentUser" class="actions">
-            <button
-              v-if="userInfo?.canFollow !== 'hide'"
-              class="btn follow"
-              :class="{ active: isFollowing }"
-              @click="handleFollow"
-            >
-              {{ isFollowing ? "已关注" : "关注" }}
-            </button>
-            <button
-              class="btn message"
-              @click="handleMessage(userInfo?.userName)"
-            >
-              发消息
-            </button>
-          </div>
-
-          <!-- 只显示个人简介内容，如果有的话 -->
-          <div v-if="userInfo?.userIntro" class="bio-content-inline-only">
-            {{ userInfo?.userIntro }}
-          </div>
-        </div>
-      </div>
-
       <!-- 主要内容区 -->
       <main class="main-content">
-        <!-- 数据统计 -->
-        <div class="stats">
-          <div class="stat-item">
-            <span class="value">{{ userInfo?.userPoint || 0 }}</span>
-            <span class="label">积分</span>
+        <!-- 用户信息 -->
+        <section class="section user-basic" v-loading="userLoading">
+          <div class="user-basic-row">
+            <img class="user-basic-avatar" :src="userInfo?.userAvatarURL" alt="avatar" />
+            <div class="user-basic-meta">
+              <div class="user-basic-name">{{ userInfo?.userNickname || userInfo?.userName || "-" }}</div>
+              <div class="user-basic-sub">@{{ userInfo?.userName || "-" }}</div>
+            </div>
           </div>
-          <div class="stat-item">
-            <span class="value">{{ userInfo?.followingUserCount || 0 }}</span>
-            <span class="label">关注</span>
-          </div>
-          <div class="stat-item">
-            <span class="value">{{ userInfo?.followerCount || 0 }}</span>
-            <span class="label">粉丝</span>
-          </div>
-          <div class="stat-item">
-            <span class="value">{{ userInfo?.onlineMinute || 0 }}</span>
-            <span class="label">在线时长/分钟</span>
-          </div>
-        </div>
 
-        <!-- 徽章展示 -->
-        <section
-          v-if="
-            userInfo?.allMetalOwned &&
-            JSON.parse(userInfo.allMetalOwned).list?.length > 0
-          "
-          class="section badges"
-        >
-          <h3>{{ isCurrentUser ? "我的勋章" : "TA的勋章" }}</h3>
-          <div class="badge-list">
-            <div
-              v-for="(badge, index) in JSON.parse(userInfo.allMetalOwned).list"
-              :key="index"
-              class="badge"
-              :style="getBadgeStyle(badge.attr)"
-            >
-              <img :src="getBadgeImage(badge.attr)" :alt="badge.name" />
-              <div class="badge-info">
-                <span class="name">{{ badge.name }}</span>
-                <span class="desc">{{ badge.description }}</span>
+          <div class="user-basic-kv">
+            <div class="kv-item">
+              <div class="kv-label">积分</div>
+              <div class="kv-value">{{ userPoints }}</div>
+            </div>
+            <div class="kv-item">
+              <div class="kv-label">个性签名</div>
+              <div class="kv-value kv-value--multiline">{{ userSignature }}</div>
+            </div>
+            <div class="kv-item">
+              <div class="kv-label">IP属地</div>
+              <div class="kv-value">
+                <span class="ip-location">
+                  <span class="ip-emoji">📍</span>
+                  <span class="ip-text">{{ ipLocation }}</span>
+                </span>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 个人资料 -->
-        <section class="section profile">
-          <h3>个人资料</h3>
-          <div class="info-list">
-            <div class="info-item">
-              <span class="label">用户编号</span>
-              <span class="value">{{ userInfo?.userNo }}</span>
-            </div>
-            <div class="info-item">
-              <span class="label">MBTI</span>
-              <span class="value">{{ userInfo?.mbti || "未知" }}</span>
-            </div>
-            <div class="info-item">
-              <span class="label">在线状态</span>
-              <span class="value">
-                <span
-                  class="status"
-                  :class="{ online: userInfo?.userOnlineFlag }"
-                ></span>
-                {{ userInfo?.userOnlineFlag ? "在线" : "离线" }}
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="label">个人主页</span>
-              <a
-                v-if="userInfo?.userURL"
-                :href="userInfo.userURL"
-                target="_blank"
-                class="link"
-              >
-                {{ userInfo.userURL }}
-              </a>
-              <span v-else class="value">未设置</span>
+        <!-- 宠物信息 -->
+        <section class="section user-pet" v-loading="petLoading">
+          <h3>宠物</h3>
+          <div v-if="petInfo" class="pet-left-panel">
+            <div class="equip-slot-grid">
+              <div class="equip-column">
+                <div
+                  v-for="slot in leftSlots"
+                  :key="slot.key"
+                  class="equip-slot-card"
+                  :class="{ equipped: !!getOtherEquippedItem(slot.key) }"
+                  :title="getOtherEquippedItem(slot.key)?.template?.name || slot.label"
+                >
+                  <img
+                    v-if="getOtherEquippedItem(slot.key)?.template?.icon"
+                    :src="getOtherEquippedItem(slot.key).template.icon"
+                    alt="equip"
+                    class="slot-item-icon"
+                  />
+                  <span v-else>{{ slot.icon }}</span>
+                  <span class="slot-label">{{ slot.label }}</span>
+                </div>
+              </div>
+              <div class="pet-preview">
+                <img v-if="petInfo.petUrl" :src="petInfo.petUrl" alt="pet" class="pet-preview-avatar" />
+                <div class="pet-level-chip">Lv.{{ petInfo.level || 1 }}</div>
+              </div>
+              <div class="equip-column">
+                <div
+                  v-for="slot in rightSlots"
+                  :key="slot.key"
+                  class="equip-slot-card"
+                  :class="{ equipped: !!getOtherEquippedItem(slot.key) }"
+                  :title="getOtherEquippedItem(slot.key)?.template?.name || slot.label"
+                >
+                  <img
+                    v-if="getOtherEquippedItem(slot.key)?.template?.icon"
+                    :src="getOtherEquippedItem(slot.key).template.icon"
+                    alt="equip"
+                    class="slot-item-icon"
+                  />
+                  <span v-else>{{ slot.icon }}</span>
+                  <span class="slot-label">{{ slot.label }}</span>
+                </div>
+              </div>
             </div>
           </div>
+          <el-empty v-else description="暂未查询到宠物信息" />
         </section>
       </main>
     </div>
@@ -149,12 +103,15 @@
 import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { userApi } from "../api";
+import { petApi } from "../api/pet";
 import { useUserStore } from "../stores/user";
 
 const route = useRoute();
 const router = useRouter();
 const userInfo = ref(null);
-const isFollowing = ref(false);
+const userLoading = ref(false);
+const petInfo = ref(null);
+const petLoading = ref(false);
 
 const userStore = useUserStore();
 
@@ -162,59 +119,126 @@ const isCurrentUser = computed(() => {
   return userStore.userInfo?.userName === userInfo.value?.userName;
 });
 
-const getBadgeStyle = (attr) => {
-  const params = new URLSearchParams(attr);
-  return {
-    backgroundColor: params.get("backcolor") || "#ffffff",
-    color: params.get("fontcolor") || "#333333",
-  };
+const WS_MESSAGE_STORAGE_KEY = "user-profile-ws-message";
+const leftSlots = [
+  { key: "weapon", label: "武器", icon: "⚔️" },
+  { key: "hand", label: "手套", icon: "🧤" },
+  { key: "foot", label: "鞋子", icon: "👟" },
+];
+const rightSlots = [
+  { key: "head", label: "头盔", icon: "👑" },
+  { key: "necklace", label: "项链", icon: "📿" },
+  { key: "accessory2", label: "饰品", icon: "💎" },
+];
+
+const userPoints = computed(() => {
+  const u = userInfo.value || {};
+  return u.userPoint ?? u.points ?? 0;
+});
+
+const userSignature = computed(() => {
+  const u = userInfo.value || {};
+  return String(u.userProfile || "").trim() || "未设置";
+});
+
+const normalizeIpPart = (v) => {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  if (s === "未知地区" || s === "未知国家") return "";
+  return s;
 };
 
-const getBadgeImage = (attr) => {
-  const params = new URLSearchParams(attr);
-  return params.get("url");
+const ipLocation = computed(() => {
+  const u = userInfo.value || {};
+  const region = normalizeIpPart(u.region ?? u.userRegion ?? u.ipRegion);
+  const country = normalizeIpPart(u.country ?? u.userCountry ?? u.ipCountry);
+  if (country && region) return `${country} · ${region}`;
+  return country || region || "未知";
+});
+
+const getOtherEquippedItem = (slot) => {
+  const equipped = petInfo.value?.equippedItems || {};
+  return equipped?.[slot] || null;
 };
 
-const handleEdit = () => {
-  router.push("/settings/profile");
-};
+const fetchOtherUserPet = async () => {
+  const targetUserId = userInfo.value?.userId ?? userInfo.value?.id ?? route.params.id;
+  if (!targetUserId) {
+    petInfo.value = null;
+    return;
+  }
 
-const handleMessage = (userName) => {
-  utools.dbStorage.setItem("private-chat-user", userName);
-  router.push(`/private-chat?user=${userName}`);
+  try {
+    petLoading.value = true;
+    const response = await petApi.getOtherUserPet({ otherUserId: targetUserId });
+    petInfo.value = response?.code === 0 ? response?.data || null : null;
+  } catch (error) {
+    console.error("获取其他用户宠物失败:", error);
+    petInfo.value = null;
+  } finally {
+    petLoading.value = false;
+  }
 };
 
 const fetchUserInfo = async () => {
   try {
-    const username = route.params.username;
-    const response = await userApi.getUserProfile(username);
-    userInfo.value = response;
-    isFollowing.value = response.isFollowing ?? false;
+    userLoading.value = true;
+    // 优先使用 WS 消息里带过来的用户 id（从聊天室/私信跳转时更可靠）
+    const identifier =
+      userInfo.value?.userId ??
+      userInfo.value?.id ??
+      route.params.id ??
+      route.params.username;
+    const response = await userApi.getUserVoById(identifier);
+    const base = userInfo.value || {};
+    const next = response || { userName: String(identifier || "").trim() };
+    // 详情接口不一定包含 region/country，避免把 WS 带过来的值覆盖掉
+    userInfo.value = {
+      ...base,
+      ...next,
+      userProfile: base.userProfile ?? next.userProfile,
+      region: base.region ?? next.region,
+      country: base.country ?? next.country,
+    };
+    await fetchOtherUserPet();
   } catch (error) {
     console.error("获取用户信息失败:", error);
-  }
-};
-
-const handleFollow = async () => {
-  try {
-    if (isFollowing.value) {
-      await userApi.unfollowUser(userInfo.value.userId);
-      isFollowing.value = false;
-      userInfo.value.followerCount = Math.max(
-        (userInfo.value.followerCount || 0) - 1,
-        0
-      );
-    } else {
-      await userApi.followUser(userInfo.value.userId);
-      isFollowing.value = true;
-      userInfo.value.followerCount = (userInfo.value.followerCount || 0) + 1;
-    }
-  } catch (error) {
-    console.error("关注/取关操作失败:", error);
+    const identifier = route.params.username;
+    userInfo.value = { userName: String(identifier || "").trim() };
+    await fetchOtherUserPet();
+  } finally {
+    userLoading.value = false;
   }
 };
 
 onMounted(async () => {
+  // 优先使用“从聊天室详情跳转时写入的 WS 消息”来渲染用户信息
+  try {
+    if (typeof utools !== "undefined") {
+      const cached = utools.dbStorage.getItem(WS_MESSAGE_STORAGE_KEY);
+      if (cached) {
+        const wsMessage = typeof cached === "string" ? JSON.parse(cached) : cached;
+        utools.dbStorage.removeItem(WS_MESSAGE_STORAGE_KEY);
+
+        const sender = wsMessage?.data?.message?.sender;
+        if (sender) {
+          userInfo.value = {
+            userId: sender.id ?? sender.userId ?? userInfo.value?.userId,
+            userName: sender.name || userInfo.value?.userName,
+            userNickname: sender.name || userInfo.value?.userNickname,
+            userAvatarURL: sender.avatar || userInfo.value?.userAvatarURL,
+            userPoint: sender.points ?? userInfo.value?.userPoint,
+            region: sender.region ?? userInfo.value?.region,
+            country: sender.country ?? userInfo.value?.country,
+          };
+          await fetchUserInfo();
+        }
+        return;
+      }
+    }
+  } catch (e) {
+    console.error("读取 WS 消息缓存失败:", e);
+  }
   await fetchUserInfo();
 });
 </script>
@@ -286,175 +310,11 @@ onMounted(async () => {
   -webkit-overflow-scrolling: touch;
 }
 
-.user-header {
-  position: relative;
-  padding: 24px 16px;
-  background-size: cover;
-  background-position: center;
-  flex-shrink: 0;
-}
-
-.user-header::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.4),
-    rgba(0, 0, 0, 0.2)
-  );
-}
-
-.user-info {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  max-width: 800px;
-  margin: 0 auto;
-  flex-wrap: wrap;
-  color: #fff;
-}
-
-.avatar {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  flex-shrink: 0;
-}
-
-.avatar img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 3px solid var(--avatar-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.role-tag {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  padding: 2px 8px;
-  background: var(--primary-color);
-  color: #fff;
-  font-size: 12px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.3);
-}
-
-.info {
-  flex: 1;
-  min-width: 180px;
-}
-
-.info h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.username {
-  margin: 4px 0;
-  font-size: 14px;
-  opacity: 0.9;
-  color: #fff;
-}
-
-.user-no {
-  margin: 4px 0;
-  font-size: 14px;
-  color: #fff;
-}
-
-.location {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin: 0;
-  font-size: 14px;
-  opacity: 0.9;
-  color: #fff;
-}
-
-.actions {
-  display: flex;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.btn {
-  padding: 8px 20px;
-  border: none;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn.follow {
-  background: var(--primary-color);
-  color: #fff;
-}
-
-.btn.follow.active {
-  background: var(--hover-bg);
-  color: var(--sub-text-color);
-}
-
-.btn.message {
-  background: var(--card-bg);
-  color: var(--primary-color);
-  border: 1px solid var(--primary-color);
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
 .main-content {
   max-width: 800px;
   margin: 0 auto;
   padding: 16px;
   padding-bottom: 32px;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-  background: var(--card-bg);
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-}
-
-.stat-item {
-  background: none;
-  padding: 0;
-  border-radius: 0;
-  box-shadow: none;
-  text-align: center;
-}
-
-.stat-item .value {
-  display: block;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--primary-color);
-  margin-bottom: 4px;
-}
-
-.stat-item .label {
-  font-size: 13px;
-  color: var(--sub-text-color);
 }
 
 .section {
@@ -472,146 +332,181 @@ onMounted(async () => {
   color: var(--text-color);
 }
 
-.badge-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
+.empty-text {
+  color: var(--sub-text-color);
+  font-size: 13px;
 }
 
-.badge {
+.user-basic-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  transition: transform 0.2s;
-  background: none;
-  box-shadow: none;
 }
 
-.badge:hover {
-  transform: translateY(-2px);
+.user-basic-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-color);
 }
 
-.badge img {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+.user-basic-meta {
+  flex: 1;
+  min-width: 0;
 }
 
-.badge-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.badge-info .name {
-  font-size: 14px;
-  font-weight: 500;
+.user-basic-name {
+  font-size: 16px;
+  font-weight: 700;
   color: var(--text-color);
 }
 
-.badge-info .desc {
+.user-basic-sub {
+  margin-top: 2px;
   font-size: 12px;
   color: var(--sub-text-color);
 }
 
-.info-list {
-  display: flex;
-  flex-direction: column;
+.user-basic-kv {
+  margin-top: 14px;
+  display: grid;
   gap: 12px;
 }
 
-.info-item {
+.kv-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  gap: 10px;
   padding: 12px;
-  background: none;
-  border-radius: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
 }
 
-.info-item .label {
+.kv-label {
+  width: 72px;
   font-size: 14px;
   color: var(--sub-text-color);
+  flex-shrink: 0;
 }
 
-.info-item .value {
+.kv-value {
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   color: var(--text-color);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.status {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--border-color);
-  margin-right: 6px;
-}
-
-.status.online {
-  background: var(--signed-color);
-}
-
-.link {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
-/* 新增的个人简介内联样式 */
-.bio-content-inline-only {
-  width: 100%;
-  font-size: 14px;
-  line-height: 1.6;
+.kv-value--multiline {
   white-space: pre-wrap;
-  opacity: 0.9;
+  overflow: visible;
+}
+
+.ip-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--sub-text-color);
+  font-size: 12px;
+}
+
+.ip-emoji {
+  font-size: 14px;
+}
+
+.ip-text {
+  color: var(--sub-text-color);
+}
+
+.user-pet {
+  min-height: 220px;
+}
+
+.pet-left-panel {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border: 2px solid #fdba74;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.equip-slot-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.equip-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.equip-slot-card {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 1px solid #fdba74;
+  background: #fff;
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.2s ease;
+}
+
+.equip-slot-card.equipped {
+  border: 2px solid #a855f7;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+  background: #fff;
+}
+
+.slot-item-icon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.slot-label {
+  font-size: 10px;
+  color: #777;
+}
+
+.pet-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pet-preview-avatar {
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  border: 4px solid #fdba74;
+}
+
+.pet-level-chip {
+  background: #f97316;
   color: #fff;
+  border-radius: 999px;
+  padding: 2px 12px;
+  font-size: 12px;
 }
 
 @media (max-width: 768px) {
-  .user-info {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 20px;
+  .user-basic-row {
+    flex-wrap: wrap;
   }
 
-  .actions {
-    width: auto;
-    justify-content: center;
-  }
-
-  /* 移动端调整内联简介样式 */
-  .bio-content-inline-only {
-    margin-top: 16px;
-    text-align: center;
-  }
-
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-    padding: 16px;
-  }
-
-  .badge-list {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 480px) {
-  .stats {
-    grid-template-columns: 1fr;
-    padding: 12px;
-  }
-
-  .btn {
-    padding: 6px 16px;
-    font-size: 13px;
+  .pet-preview-avatar {
+    width: 96px;
+    height: 96px;
   }
 }
 </style>

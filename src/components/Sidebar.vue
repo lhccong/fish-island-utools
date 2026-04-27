@@ -26,8 +26,13 @@
         <p>加载中...</p>
       </div>
       <ul v-else class="online-users-list">
-        <li v-for="user in onlineUsers" :key="user.userName" class="user-item" @click="showUserProfile(user.userName)">
-          <img 
+        <li
+          v-for="user in onlineUsers"
+          :key="user.userName"
+          class="user-item"
+          @click="showUserProfile(user.id || user.userId, user.userName)"
+        >
+          <img v-if="props.showAvatars"
             :src="getAvatarUrl(user)" 
             :alt="user.userName" 
             class="user-avatar" 
@@ -194,6 +199,10 @@
     onlineUsers: {
       type: Array,
       default: () => [],
+    },
+    showAvatars: {
+      type: Boolean,
+      default: true,
     },
   });
 
@@ -526,8 +535,12 @@
     }
     remarksLoaded.value = true;
   };
-  const showUserProfile = (userName) => {
-    router.push(`/user/${userName}`);
+  const showUserProfile = (userId, userName) => {
+    const identifier =
+      userId === null || typeof userId === "undefined" || userId === ""
+        ? userName
+        : String(userId);
+    router.push(`/user/${identifier}`);
   };
 
   // 获取用户显示名称（优先显示备注，使用userId作为key）

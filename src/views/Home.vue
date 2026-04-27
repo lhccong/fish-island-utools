@@ -1,7 +1,7 @@
 <template>
   <div class="main-layout">
     <WelcomeDialog />
-    <div class="sidebar">
+    <div class="sidebar" v-show="!shouldHideMainSidebar">
       <div class="logo">
         <div class="logo-container">
           <img src="../assets/pic/logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
@@ -69,7 +69,7 @@
         </div>
       </div>
     </div>
-    <div class="content-area">
+    <div class="content-area" :class="{ 'chatroom-fullscreen-area': shouldHideMainSidebar }">
       <router-view v-slot="{ Component }">
         <keep-alive>
           <component :is="Component" v-if="$route.meta.keepAlive" />
@@ -156,6 +156,10 @@ const isCollapsed = ref(true);
 const showUserCard = ref(false);
 const showAccountDialog = ref(false);
 const savedAccounts = ref([]);
+const isChatroomFullscreen = ref(false);
+const shouldHideMainSidebar = computed(
+  () => route.path === "/chatroom" && isChatroomFullscreen.value
+);
 
 const navItems = [
   { path: "/", name: "鱼塘首页", icon: "fas fa-house" },
@@ -265,9 +269,21 @@ const handleMessage = (data) => {
   }
 };
 
+const loadChatroomFullscreenSetting = () => {
+  const settings = utools.dbStorage.getItem("fishpi_settings") || {};
+  const currentUsername = userStore.userInfo?.userName;
+  const userSettings = currentUsername ? settings[currentUsername] || {} : settings;
+  isChatroomFullscreen.value = userSettings.chatroomFullscreen === true;
+};
+
+const handleChatroomFullscreenChanged = (event) => {
+  isChatroomFullscreen.value = event?.detail?.enabled === true;
+};
+
 onMounted(async () => {
   console.log("Home 组件挂载...");
   await userStore.init();
+  loadChatroomFullscreenSetting();
   await notificationStore.init();
   await livenessStore.init();
 
@@ -299,11 +315,24 @@ onMounted(async () => {
   } catch (error) {
     console.error("WebSocket 连接失败:", error);
   }
+  window.addEventListener(
+    "fishpi:chatroom-fullscreen-changed",
+    handleChatroomFullscreenChanged
+  );
+  window.addEventListener("fishpi:account-switched", loadChatroomFullscreenSetting);
 });
 
 onUnmounted(() => {
   // 组件卸载时只关闭 home-channel 连接
   wsManager.close("home-channel");
+  window.removeEventListener(
+    "fishpi:chatroom-fullscreen-changed",
+    handleChatroomFullscreenChanged
+  );
+  window.removeEventListener(
+    "fishpi:account-switched",
+    loadChatroomFullscreenSetting
+  );
 });
 
 const navigateTo = (route) => {
@@ -320,7 +349,11 @@ const logout = () => {
 };
 
 const showUserProfile = () => {
-  router.push(`/user/${userStore.userInfo?.userName}`);
+  const identifier =
+    userStore.userInfo?.id != null && userStore.userInfo?.id !== ""
+      ? String(userStore.userInfo.id)
+      : userStore.userInfo?.userName;
+  router.push(`/user/${identifier}`);
 };
 
 const showSwitchAccount = () => {
@@ -646,6 +679,10 @@ const goToLogin = () => {
   flex-grow: 1;
 }
 
+.content-area.chatroom-fullscreen-area {
+  width: 100%;
+}
+
 /* Placeholder styles for content areas */
 .content-area > div {
   height: 100%;
@@ -692,41 +729,39 @@ const goToLogin = () => {
 }
 
 /* 欢迎弹框样式 */
-:deep(.welcome-dialog) {
-  .el-message-box__content {
-    padding: 20px;
-  }
+:deep(.welcome-dialog) .el-message-box__content {
+  padding: 20px;
+}
 
-  .el-message-box__title {
-    font-size: 18px;
-    font-weight: bold;
-  }
+:deep(.welcome-dialog) .el-message-box__title {
+  font-size: 18px;
+  font-weight: bold;
+}
 
-  .el-message-box__message {
-    padding: 0;
-  }
+:deep(.welcome-dialog) .el-message-box__message {
+  padding: 0;
+}
 
-  .el-message-box__btns {
-    padding: 10px 20px 20px;
-  }
+:deep(.welcome-dialog) .el-message-box__btns {
+  padding: 10px 20px 20px;
+}
 
-  .el-button--primary {
-    background-color: var(--primary-color, #409eff);
-    border-color: var(--primary-color, #409eff);
-  }
+:deep(.welcome-dialog) .el-button--primary {
+  background-color: var(--primary-color, #409eff);
+  border-color: var(--primary-color, #409eff);
+}
 
-  a {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 8px 16px;
-    background-color: #f0f9ff;
-    border-radius: 4px;
-    transition: all 0.3s ease;
+:deep(.welcome-dialog) a {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 16px;
+  background-color: #f0f9ff;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
 
-    &:hover {
-      background-color: #e6f7ff;
-    }
-  }
+:deep(.welcome-dialog) a:hover {
+  background-color: #e6f7ff;
 }
 
 .account-switch-dialog :deep(.el-dialog__body) {

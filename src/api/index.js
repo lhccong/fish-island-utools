@@ -10,3 +10,4 @@ export { petApi } from "./pet";
 export { itemInstancesApi } from "./itemInstances";
 export { petSkinApi } from "./petSkin";
 export { stockApi } from "./stock";
+export { petEquipForgeApi } from "./petEquipForge";

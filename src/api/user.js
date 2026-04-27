@@ -56,6 +56,18 @@ const normalizeUserInfo = (user) => {
     return null;
   }
 
+  // 兼容后端通用包装：{ code, data, message }
+  // request 拦截器返回的是 response.data，因此这里需要主动解包 data
+  if (
+    "data" in user &&
+    user.data &&
+    typeof user.data === "object" &&
+    !Array.isArray(user.data)
+  ) {
+    // eslint-disable-next-line no-param-reassign
+    user = user.data;
+  }
+
   const avatarFromResponse =
     user.userAvatarURL ||
     user.userAvatarURL48 ||
@@ -213,8 +225,15 @@ export const userApi = {
     if (shouldUseIdLookup) {
       return this.getUserVoById(identifier);
     }
-    const res = await request.get(`/user/${identifier}`);
-    return normalizeUserInfo(res);
+    // 新后端接口优先：尝试按 userName 获取 VO（不同后端可能支持不同入参）
+    try {
+      const res = await request.get("/api/user/get/vo", { userName: String(identifier || "").trim() });
+      const user = res?.data ?? res;
+      return normalizeUserInfo(user);
+    } catch (error) {
+      // 老接口在部分环境返回 HTML（非 JSON），这里不再强依赖；返回最小结构兜底
+      return normalizeUserInfo({ userName: String(identifier || "").trim() });
+    }
   },
   async getUserVoById(id) {
     if (typeof id === "undefined" || id === null || id === "") {
