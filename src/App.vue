@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { request } from "./api";
 import { theme, setTheme } from "./utils/theme";
 import ErrorHandler from "./components/ErrorHandler.vue";
+import ImagePreviewOverlay from "./components/ImagePreviewOverlay.vue";
 
 const router = useRouter();
 const isLoggedIn = ref(false);
@@ -70,6 +71,7 @@ const handleSystemThemeChange = (event) => {
 <template>
   <div id="app">
     <ErrorHandler />
+    <ImagePreviewOverlay />
     <router-view></router-view>
   </div>
 </template>

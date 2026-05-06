@@ -61,6 +61,13 @@
               <i class="fas fa-exchange-alt"></i>
               <span>切换账号</span>
             </div> -->
+            <div
+              class="user-card-item"
+              @click.stop="goEditProfile"
+            >
+              <i class="fas fa-user-edit"></i>
+              <span>修改资料</span>
+            </div>
             <div class="user-card-item" @click.stop="logout">
               <i class="fas fa-sign-out-alt"></i>
               <span>退出登录</span>
@@ -164,6 +171,7 @@ const shouldHideMainSidebar = computed(
 const navItems = [
   { path: "/", name: "鱼塘首页", icon: "fas fa-house" },
   { path: "/hot-posts", name: "帖子热榜", icon: "fas fa-fire" },
+  { path: "/fish-circle", name: "鱼小圈", icon: "fas fa-camera" },
   { path: "/chatroom", name: "摸鱼室", icon: "fas fa-comments" },
   { path: "/reader", name: "摸鱼阅读", icon: "fas fa-book-reader" },
   { path: "/pet-center", name: "宠物乐园", icon: "fas fa-dragon" },
@@ -354,6 +362,11 @@ const showUserProfile = () => {
       ? String(userStore.userInfo.id)
       : userStore.userInfo?.userName;
   router.push(`/user/${identifier}`);
+};
+
+const goEditProfile = () => {
+  showUserCard.value = false;
+  router.push({ path: "/settings", query: { group: "profile" } });
 };
 
 const showSwitchAccount = () => {

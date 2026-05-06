@@ -392,6 +392,48 @@ export const userApi = {
   },
 
   /**
+   * 上传朋友圈/动态配图（与 Web 端 fish-circle 一致 biz=user_post）
+   * @returns {Promise<string>} 图片 URL
+   */
+  async uploadPostImage(file) {
+    const validTypes = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+    const fileExt = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+    if (!validTypes.includes(fileExt)) {
+      return Promise.reject(
+        new Error("不支持的文件格式，仅支持 jpg, jpeg, png, gif, webp")
+      );
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      return Promise.reject(new Error("文件大小不能超过20MB"));
+    }
+    const isImage = file.type && file.type.startsWith("image/");
+    const needCompress = isImage && !checkFileSize(file);
+    const fileToUpload = needCompress ? await compressImage(file) : file;
+
+    const formData = new FormData();
+    formData.append("file", fileToUpload);
+
+    const res = await request.instance.post("/api/file/minio/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      params: { biz: "user_post" },
+    });
+
+    if (!res || typeof res !== "object") {
+      throw new Error("上传失败");
+    }
+    if (res.code !== undefined && res.code !== 0) {
+      throw new Error(res.message || res.msg || "上传失败");
+    }
+    const url = res.data;
+    if (!url) {
+      throw new Error("图片上传失败");
+    }
+    return typeof url === "string" ? url : String(url);
+  },
+
+  /**
    * 新增收藏表情包
    * @param {string} emoticonSrc - 表情包图片URL
    * @returns {Promise<{code?: number, data?: boolean, message?: string}>}
@@ -443,5 +485,29 @@ export const userApi = {
       sortField: params.sortField,
       sortOrder: params.sortOrder,
     });
+  },
+
+  /**
+   * 更新当前登录用户个人信息（Web 端「修改个人信息」同款）
+   * POST /api/user/update/my
+   */
+  updateMyProfile(data) {
+    return request.post("/api/user/update/my", data);
+  },
+
+  /** 获取可用称号列表 GET /api/user/title/list */
+  listAvailableTitles() {
+    return request.get("/api/user/title/list");
+  },
+
+  /** 设置当前佩戴称号 POST /api/user/title/set?titleId= */
+  setCurrentTitle(titleId) {
+    return request.post(
+      "/api/user/title/set",
+      {},
+      {
+        params: { titleId },
+      }
+    );
   },
 };

@@ -17,6 +17,7 @@ import Reader from "../views/Reader/index.vue";
 import PetCenter from "../views/PetCenter.vue";
 import PointsPlay from "../views/PointsPlay.vue";
 import StockMarket from "../views/StockMarket.vue";
+import FishCircle from "../views/FishCircle.vue";
 
 const routes = [
   {
@@ -76,6 +77,11 @@ const routes = [
         path: "/hot-posts",
         name: "HotPosts",
         component: HotPosts,
+      },
+      {
+        path: "/fish-circle",
+        name: "FishCircle",
+        component: FishCircle,
       },
       {
         path: "/pet-center",
