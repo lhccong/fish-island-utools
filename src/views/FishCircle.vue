@@ -428,7 +428,7 @@
       destroy-on-close
       @closed="rewardMomentId = null"
     >
-      <p class="reward-desc">积分将从你的账户扣除（usedPoints）</p>
+      <p class="reward-desc">扣除可用积分</p>
       <div class="reward-presets">
         <span
           v-for="v in [1, 5, 10, 20]"
@@ -1188,7 +1188,7 @@ watch(
 .cover-header {
   position: relative;
   height: 200px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #F4F4F4;
   overflow: hidden;
 }
 
@@ -1197,7 +1197,6 @@ watch(
   inset: 0;
   background-size: cover;
   background-position: center;
-  opacity: 0.45;
 }
 
 .cover-back-btn {
@@ -1454,39 +1453,38 @@ watch(
 }
 
 .comment-section {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--border-color, #eee);
-  /* 与帖子正文（moment-body）左缘对齐：头像宽 + 与正文间距 */
   margin-left: calc(var(--fc-avatar-w, 44px) + var(--fc-content-gap, 12px));
 }
 
 .comment-list {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .comment-item {
   display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .comment-item.child {
-  margin-left: 12px;
-  margin-top: 8px;
+  margin-left: 14px;
+  margin-top: 12px;
 }
 
 .comment-avatar {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 4px;
   object-fit: cover;
   flex-shrink: 0;
 }
 
 .comment-avatar.sm {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .comment-avatar-ph {
@@ -1505,42 +1503,57 @@ watch(
 
 .comment-username {
   font-weight: 600;
-  margin-right: 6px;
+  margin-right: 4px;
 }
 
 .reply-to {
-  color: #888;
+  color: #bbb;
   font-size: 12px;
-  margin-left: 4px;
+  margin-left: 2px;
 }
 
 .comment-content-text {
   margin-top: 4px;
-  line-height: 1.5;
+  line-height: 1.6;
   word-break: break-word;
+  color: #444;
 }
 
 .comment-meta {
-  margin-top: 4px;
+  margin-top: 6px;
   font-size: 12px;
-  color: #999;
+  color: #bbb;
 }
 
 .comment-meta .link {
-  margin-left: 10px;
+  margin-left: 8px;
   cursor: pointer;
-  color: var(--primary-color, #409eff);
+  color: #bbb;
+  transition: color 0.15s;
+}
+
+.comment-meta .link:hover {
+  color: #888;
 }
 
 .comment-meta .link.danger {
+  color: #bbb;
+}
+
+.comment-meta .link.danger:hover {
   color: var(--el-color-danger);
 }
 
 .expand-replies {
   font-size: 12px;
-  color: var(--primary-color, #409eff);
+  color: #bbb;
   cursor: pointer;
-  margin: 6px 0 6px 36px;
+  margin: 8px 0 8px 30px;
+  transition: color 0.15s;
+}
+
+.expand-replies:hover {
+  color: #888;
 }
 
 .comment-input-area {
@@ -1633,14 +1646,14 @@ watch(
 .pub-img-preview {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
+  gap: 10px;
+  margin: 14px 0 4px;
 }
 
 .pub-img-item {
   position: relative;
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
 }
 
 .pub-img-item img {
@@ -1648,6 +1661,7 @@ watch(
   height: 100%;
   object-fit: cover;
   border-radius: 8px;
+  border: 1px solid #eee;
 }
 
 .pub-img-item .rm {
@@ -1655,24 +1669,42 @@ watch(
   top: -6px;
   right: -6px;
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 10px;
 }
 
 .pub-toolbar {
-  margin: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 12px 0 4px;
+  padding: 10px 0;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .btn-lite {
   cursor: pointer;
-  font-size: 14px;
-  color: #666;
+  font-size: 13px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-lite:hover {
+  background: #f5f5f5;
+  color: #555;
 }
 
 .btn-lite input {
@@ -1680,7 +1712,7 @@ watch(
 }
 
 .pub-loc {
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .reward-desc {

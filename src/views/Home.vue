@@ -171,8 +171,8 @@ const shouldHideMainSidebar = computed(
 const navItems = [
   { path: "/", name: "鱼塘首页", icon: "fas fa-house" },
   { path: "/hot-posts", name: "帖子热榜", icon: "fas fa-fire" },
-  { path: "/fish-circle", name: "鱼小圈", icon: "fas fa-camera" },
   { path: "/chatroom", name: "摸鱼室", icon: "fas fa-comments" },
+  { path: "/fish-circle", name: "鱼小圈", icon: "fas fa-camera" },
   { path: "/reader", name: "摸鱼阅读", icon: "fas fa-book-reader" },
   { path: "/pet-center", name: "宠物乐园", icon: "fas fa-dragon" },
   { path: "/points-play", name: "积分玩法", icon: "fas fa-coins" },
