@@ -1,3 +1,6 @@
+import { getActivePinia } from "pinia";
+import { useImagePreviewOverlayStore } from "../stores/imagePreviewOverlay";
+
 /**
  * 计算图片预览窗口的大小
  * @param {string} imageSrc - 图片地址
@@ -83,10 +86,10 @@ export function calculateImageWindowSize(imageSrc) {
 }
 
 /**
- * 创建图片预览窗口
+ * 创建图片预览（uTools：插件内全屏遮罩；浏览器：独立页）
  * @param {Array} images - 图片数组
  * @param {number} currentIndex - 当前图片索引
- * @returns {Promise<Object>} 返回窗口对象
+ * @returns {Promise<Object>} 返回可 close / isDestroyed 的句柄或子窗口对象
  */
 export async function createImagePreviewWindow(images, currentIndex = 0) {
   if (!images || images.length === 0) {
@@ -98,80 +101,52 @@ export async function createImagePreviewWindow(images, currentIndex = 0) {
     throw new Error("当前图片无效");
   }
 
-  // 准备URL参数
+  if (window.utools) {
+    const pinia = getActivePinia();
+    if (!pinia) {
+      throw new Error("图片预览失败：应用未初始化");
+    }
+    const store = useImagePreviewOverlayStore(pinia);
+    store.open(images, currentIndex);
+    if (!store.visible) {
+      throw new Error("没有图片可以预览");
+    }
+    return {
+      close: () => store.close(),
+      isDestroyed: () => !store.visible,
+    };
+  }
+
   const imagesParam = encodeURIComponent(JSON.stringify(images));
   const url = `image-preview.html?images=${imagesParam}&index=${currentIndex}`;
 
-  // 计算合适的窗口大小
   const windowSize = await calculateImageWindowSize(currentImage.src);
   const windowWidth = windowSize.width;
   const windowHeight = windowSize.height;
 
   console.log("创建图片预览窗口，尺寸:", windowWidth, "x", windowHeight);
+  console.log("非 uTools 环境，使用普通窗口");
 
-  if (window.utools) {
-    try {
-      // 计算窗口居中位置
-      const screenWidth = window.screen.width;
-      const screenHeight = window.screen.height;
-      const x = Math.floor((screenWidth - windowWidth) / 2);
-      const y = Math.floor((screenHeight - windowHeight) / 2);
-
-      // 使用 createBrowserWindow 创建独立窗口
-      const previewWindow = utools.createBrowserWindow(
-        url,
-        {
-          show: false,
-          title: "图片预览",
-          width: windowWidth,
-          height: windowHeight,
-          x: x,
-          y: y,
-          center: true,
-          resizable: true,
-          minimizable: true,
-          maximizable: true,
-          webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-          },
-        },
-        () => {
-          console.log("图片预览窗口加载完成");
-          // 显示窗口
-          previewWindow.show();
-
-          // 向窗口发送消息，传递窗口对象信息
-          try {
-            previewWindow.webContents.send("window-info", {
-              width: windowWidth,
-              height: windowHeight,
-              windowId: previewWindow.id,
-            });
-          } catch (error) {
-            console.error("发送窗口信息失败:", error);
-          }
-        }
-      );
-
-      console.log("图片预览窗口创建成功:", previewWindow);
-      return previewWindow;
-    } catch (error) {
-      console.error("创建图片预览窗口失败:", error);
-      throw error;
-    }
-  } else {
-    // 非 uTools 环境，使用普通浏览器窗口
-    console.log("非 uTools 环境，使用普通窗口");
-    const newWindow = window.open(
-      url,
-      "_blank",
-      `width=${windowWidth},height=${windowHeight},left=${Math.floor(
-        (screen.width - windowWidth) / 2
-      )},top=${Math.floor(
-        (screen.height - windowHeight) / 2
-      )},resizable=yes,scrollbars=yes,status=yes`
-    );
-    return newWindow;
+  const newWindow = window.open(
+    url,
+    "_blank",
+    `width=${windowWidth},height=${windowHeight},left=${Math.floor(
+      (screen.width - windowWidth) / 2
+    )},top=${Math.floor(
+      (screen.height - windowHeight) / 2
+    )},resizable=yes,scrollbars=yes,status=yes`
+  );
+  if (!newWindow) {
+    throw new Error("无法打开预览窗口（可能被浏览器拦截弹窗）");
   }
+  return {
+    close: () => {
+      try {
+        if (!newWindow.closed) newWindow.close();
+      } catch (_) {
+        /* ignore */
+      }
+    },
+    isDestroyed: () => !newWindow || newWindow.closed,
+  };
 }

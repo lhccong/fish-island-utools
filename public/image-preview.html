@@ -888,19 +888,12 @@
 
       document.getElementById("close").addEventListener("click", () => {
         console.log("关闭按钮被点击");
-        console.log("uTools API 可用性:", !!window.utools);
-
-        if (window.utools) {
-          try {
-            console.log("尝试使用 uTools outPlugin 关闭窗口");
-            window.utools.outPlugin();
-          } catch (e) {
-            console.error("uTools outPlugin 失败:", e);
-            window.close();
-          }
-        } else {
-          console.log("uTools API 不可用，使用 window.close");
+        // 预览页由 createBrowserWindow 打开，须用 window.close 仅关闭子窗口。
+        // 勿用 utools.outPlugin()，否则会退出整个插件（本体）。
+        try {
           window.close();
+        } catch (e) {
+          console.error("关闭预览窗口失败:", e);
         }
       });
       // 键盘快捷键

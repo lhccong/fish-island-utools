@@ -19,6 +19,13 @@
             主题设置
           </li>
           <li
+            :class="{ active: activeGroup === 'profile' }"
+            @click="activeGroup = 'profile'"
+          >
+            <i class="fas fa-user-edit"></i>
+            个人信息
+          </li>
+          <li
             :class="{ active: activeGroup === 'navbar' }"
             @click="activeGroup = 'navbar'"
           >
@@ -113,6 +120,152 @@
                     currentTheme === "dark" ? "☀️ 切换到浅色" : "🌙 切换到深色"
                   }}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-show="activeGroup === 'profile'">
+          <div class="data-card profile-card">
+            <div class="card-header">
+              <h2>个人信息</h2>
+              <p class="card-sub">
+                与网页端一致，修改用户名、头像、鱼小圈背景等（用户名修改规则以服务端为准）
+              </p>
+            </div>
+            <div class="profile-form-body">
+              <div class="pf-row">
+                <label class="pf-label">用户名</label>
+                <el-input
+                  v-model="pf.userName"
+                  maxlength="10"
+                  show-word-limit
+                  placeholder="10 字以内"
+                  @input="pf.userName = ($event || '').replace(/\s/g, '')"
+                />
+                <p class="pf-hint">新用户可免费改一次；之后每月限改且消耗积分（以服务端提示为准）</p>
+              </div>
+              <div class="pf-row">
+                <label class="pf-label">绑定邮箱</label>
+                <div v-if="boundEmail" class="pf-email-bound">
+                  <i class="fas fa-check-circle" /> {{ boundEmail }}
+                </div>
+                <el-alert
+                  v-else
+                  type="info"
+                  :closable="false"
+                  show-icon
+                  title="绑定邮箱请前往网页版摸鱼岛完成验证"
+                />
+              </div>
+              <div class="pf-row pf-avatar-block">
+                <label class="pf-label">头像</label>
+                <div class="pf-avatar-wrap">
+                  <img
+                    class="pf-avatar-preview"
+                    :src="avatarPreviewSrc"
+                    alt=""
+                  >
+                  <div class="pf-avatar-actions">
+                    <label class="btn-upload">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        :disabled="avatarUploading"
+                        @change="onProfileAvatarFile"
+                      >
+                      {{ avatarUploading ? "上传中…" : "上传图片" }}
+                    </label>
+                    <el-input
+                      v-model="pf.userAvatar"
+                      size="small"
+                      placeholder="或粘贴图片 URL"
+                      clearable
+                      @input="onAvatarUrlInput"
+                    />
+                  </div>
+                </div>
+                <div class="pf-default-avatars">
+                  <span class="pf-def-label">默认头像</span>
+                  <button
+                    v-for="(av, idx) in defaultAvatars"
+                    :key="idx"
+                    type="button"
+                    class="pf-def-av"
+                    :class="{ active: selectedDefaultAvatar === av }"
+                    @click="pickDefaultAvatar(av)"
+                  >
+                    <img :src="av" alt="">
+                  </button>
+                </div>
+              </div>
+              <div class="pf-row pf-row-split">
+                <div class="pf-col">
+                  <label class="pf-label">鱼小圈背景</label>
+                  <div class="pf-bg-row">
+                    <div class="pf-bg-preview">
+                      <img v-if="bgPreviewSrc" :src="bgPreviewSrc" alt="">
+                      <span v-else class="pf-bg-ph">预览</span>
+                    </div>
+                    <div class="pf-bg-actions">
+                      <label class="btn-upload">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          :disabled="bgUploading"
+                          @change="onMomentsBgFile"
+                        >
+                        {{ bgUploading ? "上传中…" : "上传背景" }}
+                      </label>
+                      <el-input
+                        v-model="pf.momentsBgUrl"
+                        size="small"
+                        placeholder="或图片地址"
+                        clearable
+                        @input="previewBgUrl = (pf.momentsBgUrl || '').trim()"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="pf-col">
+                  <label class="pf-label">称号</label>
+                  <el-select
+                    v-model="profileTitleId"
+                    placeholder="选择称号"
+                    clearable
+                    style="width: 100%"
+                    @change="onTitleChange"
+                  >
+                    <el-option
+                      v-for="t in availableTitles"
+                      :key="t.titleId"
+                      :label="t.name || `称号${t.titleId}`"
+                      :value="t.titleId"
+                    />
+                  </el-select>
+                  <p v-if="profileTitleId != null" class="pf-hint">
+                    当前佩戴的称号同步于网页端
+                  </p>
+                </div>
+              </div>
+              <div class="pf-row">
+                <label class="pf-label">个人简介</label>
+                <el-input
+                  v-model="pf.userProfile"
+                  type="textarea"
+                  :rows="3"
+                  maxlength="100"
+                  show-word-limit
+                  placeholder="介绍一下自己（最多100字）"
+                />
+              </div>
+              <div class="pf-actions">
+                <el-button
+                  type="primary"
+                  :loading="profileSaving"
+                  @click="saveProfile"
+                >
+                  保存修改
+                </el-button>
               </div>
             </div>
           </div>
@@ -485,13 +638,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from "vue";
+import { ref, reactive, onMounted, computed, onUnmounted, watch } from "vue";
+import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
+import { userApi } from "../api/user";
 import { useUserStore } from "../stores/user";
 import { theme, setTheme, toggleTheme, getSystemTheme } from "../utils/theme";
 import { showMoYuReminder } from "../utils/moyuWindow";
 import AboutAuthor from "../components/AboutAuthor.vue";
 
+const route = useRoute();
 const userStore = useUserStore();
 const aboutAuthorVisible = ref(false);
 const aboutDialogVisible = ref(false);
@@ -508,6 +664,197 @@ const currentTheme = ref("auto");
 const salary = ref(5000);
 const payday = ref(1);
 const activeGroup = ref("theme");
+
+const defaultAvatars = [
+  "https://img2.baidu.com/it/u=3757990320,1019789652&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800",
+  "https://img0.baidu.com/it/u=2218138162,227420128&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=607",
+  "https://img2.baidu.com/it/u=2695396371,803611298&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800",
+  "https://img1.baidu.com/it/u=648366534,1664954226&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800",
+  "https://img0.baidu.com/it/u=925856458,2747676088&fm=253&fmt=auto?w=800&h=800",
+];
+
+const pf = reactive({
+  userName: "",
+  userProfile: "",
+  userAvatar: "",
+  momentsBgUrl: "",
+});
+
+const selectedDefaultAvatar = ref("");
+const previewAvatarUrl = ref("");
+const previewBgUrl = ref("");
+const avatarUploading = ref(false);
+const bgUploading = ref(false);
+const profileSaving = ref(false);
+const availableTitles = ref([]);
+const profileTitleId = ref(undefined);
+const titlesLoaded = ref(false);
+
+const boundEmail = computed(() => {
+  const e = userStore.userInfo?.email;
+  return e && String(e).trim() ? String(e).trim() : "";
+});
+
+const avatarPreviewSrc = computed(() => {
+  return (
+    previewAvatarUrl.value ||
+    pf.userAvatar ||
+    selectedDefaultAvatar.value ||
+    userStore.userAvatarURL ||
+    ""
+  );
+});
+
+const bgPreviewSrc = computed(() => previewBgUrl.value || pf.momentsBgUrl || "");
+
+function applyRouteGroup() {
+  const g = route.query.group;
+  if (typeof g === "string" && g) {
+    activeGroup.value = g;
+  }
+}
+
+function fillProfileFromStore() {
+  const u = userStore.userInfo || {};
+  pf.userName = u.userName || "";
+  pf.userProfile = u.userProfile || "";
+  pf.userAvatar =
+    u.userAvatar && !defaultAvatars.includes(u.userAvatar) ? u.userAvatar : "";
+  pf.momentsBgUrl = u.momentsBgUrl || "";
+  previewAvatarUrl.value = "";
+  previewBgUrl.value = pf.momentsBgUrl || "";
+  if (u.userAvatar && defaultAvatars.includes(u.userAvatar)) {
+    selectedDefaultAvatar.value = u.userAvatar;
+  } else {
+    selectedDefaultAvatar.value = "";
+  }
+  profileTitleId.value =
+    u.titleId !== undefined && u.titleId !== null ? u.titleId : undefined;
+}
+
+async function loadTitles() {
+  if (titlesLoaded.value) return;
+  try {
+    const res = await userApi.listAvailableTitles();
+    if (res.code === 0 && Array.isArray(res.data)) {
+      availableTitles.value = res.data;
+    }
+  } catch (_) {
+    availableTitles.value = [];
+  } finally {
+    titlesLoaded.value = true;
+  }
+}
+
+async function ensureProfileLoaded() {
+  await userStore.fetchUserInfo(true);
+  fillProfileFromStore();
+  await loadTitles();
+}
+
+function pickDefaultAvatar(url) {
+  selectedDefaultAvatar.value = url;
+  previewAvatarUrl.value = "";
+  pf.userAvatar = "";
+}
+
+function onAvatarUrlInput() {
+  previewAvatarUrl.value = "";
+  selectedDefaultAvatar.value = "";
+}
+
+async function onProfileAvatarFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  avatarUploading.value = true;
+  try {
+    const uploadRes = await userApi.uploadImage(file);
+    if (uploadRes.code === 0 && uploadRes.data?.succMap) {
+      const url = uploadRes.data.succMap[file.name];
+      if (url) {
+        previewAvatarUrl.value = url;
+        pf.userAvatar = url;
+        selectedDefaultAvatar.value = "";
+      }
+    } else {
+      throw new Error(uploadRes.message || "上传失败");
+    }
+  } catch (err) {
+    ElMessage.error(err.message || "头像上传失败");
+  } finally {
+    avatarUploading.value = false;
+  }
+}
+
+async function onMomentsBgFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  bgUploading.value = true;
+  try {
+    const url = await userApi.uploadPostImage(file);
+    pf.momentsBgUrl = url;
+    previewBgUrl.value = url;
+  } catch (err) {
+    ElMessage.error(err.message || "背景上传失败");
+  } finally {
+    bgUploading.value = false;
+  }
+}
+
+async function onTitleChange(titleId) {
+  if (titleId === undefined || titleId === null || titleId === "") {
+    return;
+  }
+  try {
+    const res = await userApi.setCurrentTitle(titleId);
+    if (res.code !== 0) throw new Error(res.message || "设置失败");
+    ElMessage.success("称号已更新");
+    await userStore.fetchUserInfo(true);
+    fillProfileFromStore();
+  } catch (e) {
+    ElMessage.error(e.message || "称号设置失败");
+  }
+}
+
+async function saveProfile() {
+  const name = (pf.userName || "").trim();
+  if (!name) {
+    ElMessage.warning("请填写用户名");
+    return;
+  }
+  profileSaving.value = true;
+  try {
+    const userAvatar =
+      selectedDefaultAvatar.value || (pf.userAvatar || "").trim() || undefined;
+    const res = await userApi.updateMyProfile({
+      userName: name,
+      userProfile: (pf.userProfile || "").trim() || undefined,
+      userAvatar,
+      momentsBgUrl: (pf.momentsBgUrl || "").trim() || undefined,
+    });
+    if (res.code !== 0) throw new Error(res.message || res.msg || "保存失败");
+    ElMessage.success("保存成功");
+    await userStore.fetchUserInfo(true);
+    fillProfileFromStore();
+  } catch (e) {
+    ElMessage.error(e.message || "保存失败");
+  } finally {
+    profileSaving.value = false;
+  }
+}
+
+watch(activeGroup, (g) => {
+  if (g === "profile") {
+    ensureProfileLoaded();
+  }
+});
+
+watch(
+  () => route.query.group,
+  () => applyRouteGroup()
+);
 
 // 黑名单相关
 const blacklist = ref([]);
@@ -570,6 +917,10 @@ const removeBlacklistUser = (userName) => {
 };
 
 onMounted(() => {
+  applyRouteGroup();
+  if (activeGroup.value === "profile") {
+    ensureProfileLoaded();
+  }
   // 从 utools.dbStorage 获取保存的设置
   const userSettings = getUserSettings();
   restDays.value = userSettings.restDays || ["0", "6"]; // 默认双休
@@ -1205,5 +1556,161 @@ const showAboutAuthor = () => {
   font-size: 15px;
   font-weight: 500;
   color: var(--sub-text-color, #aaa);
+}
+
+.profile-card .card-header .card-sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: normal;
+  color: var(--sub-text-color, #666);
+}
+.profile-form-body {
+  max-width: 720px;
+}
+.pf-row {
+  margin-bottom: 18px;
+}
+.pf-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-color, #222);
+}
+.pf-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--sub-text-color, #888);
+}
+.pf-email-bound {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: 8px;
+  color: #333;
+  font-size: 14px;
+}
+.pf-email-bound .fa-check-circle {
+  color: #52c41a;
+}
+.pf-avatar-block .pf-avatar-wrap {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  background: #fafafa;
+  border: 1px solid var(--border-color, #f0f0f0);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+.pf-avatar-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e8e8e8;
+  flex-shrink: 0;
+}
+.pf-avatar-actions {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.btn-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #dcdfe6);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  width: fit-content;
+}
+.btn-upload input {
+  display: none;
+}
+.pf-default-avatars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.pf-def-label {
+  font-size: 12px;
+  color: #999;
+  margin-right: 4px;
+}
+.pf-def-av {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  background: none;
+  line-height: 0;
+}
+.pf-def-av.active {
+  border-color: var(--primary-color, #409eff);
+}
+.pf-def-av img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.pf-row-split {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 16px;
+}
+@media (max-width: 720px) {
+  .pf-row-split {
+    grid-template-columns: 1fr;
+  }
+}
+.pf-bg-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: #fafafa;
+  border: 1px solid var(--border-color, #f0f0f0);
+  border-radius: 8px;
+  align-items: flex-start;
+}
+.pf-bg-preview {
+  width: 72px;
+  height: 48px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #e8e8e8;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pf-bg-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pf-bg-ph {
+  font-size: 11px;
+  color: #bbb;
+}
+.pf-bg-actions {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.pf-actions {
+  margin-top: 8px;
 }
 </style>
