@@ -1302,6 +1302,8 @@ watch(
 }
 
 .moment-item {
+  --fc-avatar-w: 44px;
+  --fc-content-gap: 12px;
   background: var(--card-bg, #fff);
   border-radius: 10px;
   padding: 14px;
@@ -1311,12 +1313,12 @@ watch(
 
 .moment-content {
   display: flex;
-  gap: 12px;
+  gap: var(--fc-content-gap);
 }
 
 .moment-avatar {
-  width: 44px;
-  height: 44px;
+  width: var(--fc-avatar-w);
+  height: var(--fc-avatar-w);
   border-radius: 6px;
   overflow: hidden;
   flex-shrink: 0;
@@ -1455,6 +1457,8 @@ watch(
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--border-color, #eee);
+  /* 与帖子正文（moment-body）左缘对齐：头像宽 + 与正文间距 */
+  margin-left: calc(var(--fc-avatar-w, 44px) + var(--fc-content-gap, 12px));
 }
 
 .comment-list {
