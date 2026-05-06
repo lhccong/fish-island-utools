@@ -454,7 +454,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from "vue";
+import {
+  ref,
+  reactive,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  nextTick,
+} from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useUserStore } from "../stores/user";
@@ -674,10 +682,13 @@ async function fetchMoments(isLoadMore = false) {
   }
 }
 
-function onScroll() {
-  const scrollTop = window.scrollY || document.documentElement.scrollTop;
-  const scrollHeight = document.documentElement.scrollHeight;
-  const clientHeight = window.innerHeight;
+/** 实际滚动在 .fish-circle-page（pageRoot）上，不是 window */
+let fishCircleScrollEl = null;
+
+function onScrollContainer() {
+  const el = fishCircleScrollEl;
+  if (!el) return;
+  const { scrollTop, scrollHeight, clientHeight } = el;
   if (
     scrollHeight - scrollTop - clientHeight < 120 &&
     hasMore.value &&
@@ -1134,11 +1145,16 @@ onMounted(async () => {
   } else {
     await fetchMoments(false);
   }
-  window.addEventListener("scroll", onScroll, { passive: true });
+  await nextTick();
+  fishCircleScrollEl = pageRoot.value;
+  fishCircleScrollEl?.addEventListener("scroll", onScrollContainer, {
+    passive: true,
+  });
 });
 
 onUnmounted(() => {
-  window.removeEventListener("scroll", onScroll);
+  fishCircleScrollEl?.removeEventListener("scroll", onScrollContainer);
+  fishCircleScrollEl = null;
 });
 
 watch(
