@@ -327,6 +327,29 @@
                 </el-select>
               </div>
             </div>
+            <div class="settings-item">
+              <div class="settings-item-left">
+                <div class="settings-item-title">
+                  <span>独立窗口标题为搜索框</span>
+                  <el-tooltip
+                    content="开启后，需关闭插件并重新打开，再次分离为独立窗口时标题栏显示为搜索框"
+                    placement="top"
+                    effect="dark"
+                  >
+                    <i class="fas fa-question-circle"></i>
+                  </el-tooltip>
+                </div>
+              </div>
+              <div class="settings-item-right">
+                <el-switch
+                  v-model="detachWindowSearchBar"
+                  @change="handleDetachWindowSearchBarChange"
+                  active-text="开启"
+                  inactive-text="关闭"
+                  inline-prompt
+                />
+              </div>
+            </div>
           </div>
         </div>
         <div v-show="activeGroup === 'worktime'">
@@ -664,6 +687,7 @@ const currentTheme = ref("auto");
 const salary = ref(5000);
 const payday = ref(1);
 const activeGroup = ref("theme");
+const detachWindowSearchBar = ref(false);
 
 const defaultAvatars = [
   "https://img2.baidu.com/it/u=3757990320,1019789652&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800",
@@ -936,6 +960,7 @@ onMounted(() => {
   currentTheme.value = userSettings.currentTheme || "auto";
   salary.value = userSettings.salary || 0;
   payday.value = userSettings.payday || 1;
+  detachWindowSearchBar.value = userSettings.detachWindowSearchBar || false;
 
   // 设置工作时间
   const startTimeStr = userSettings.workTime?.startTime || "09:00";
@@ -967,6 +992,7 @@ onMounted(() => {
     currentTheme.value = userSettings.currentTheme || "auto";
     salary.value = userSettings.salary || 0;
     payday.value = userSettings.payday || 1;
+    detachWindowSearchBar.value = userSettings.detachWindowSearchBar || false;
 
     // 重新设置工作时间
     const startTimeStr = userSettings.workTime?.startTime || "09:00";
@@ -1056,6 +1082,17 @@ const handleDefaultPageChange = (value) => {
 
   ElMessage({
     message: "默认页面设置已更新",
+    type: "success",
+    duration: 2000,
+    showClose: true,
+  });
+};
+
+const handleDetachWindowSearchBarChange = (value) => {
+  saveUserSettings({ detachWindowSearchBar: value });
+
+  ElMessage({
+    message: "独立窗口标题设置已更新",
     type: "success",
     duration: 2000,
     showClose: true,
