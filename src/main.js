@@ -17,3 +17,17 @@ app.use(pinia);
 app.use(router);
 app.use(ElementPlus);
 app.mount("#app");
+
+if (typeof utools !== "undefined") {
+  utools.onPluginEnter(() => {
+    const userSettings = utools.dbStorage.getItem("fishpi_settings") || {};
+    const currentUsername = utools.dbStorage.getItem("fishpi_user_info")?.userName;
+    const settings = currentUsername ? userSettings[currentUsername] || {} : userSettings;
+    
+    if (settings.detachWindowSearchBar) {
+      utools.setSubInput(({ text }) => {
+        console.log("搜索内容:", text);
+      }, "", false);
+    }
+  });
+}
