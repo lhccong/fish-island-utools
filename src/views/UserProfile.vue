@@ -69,7 +69,22 @@
                 </div>
               </div>
               <div class="pet-preview">
-                <img v-if="petInfo.petUrl" :src="petInfo.petUrl" alt="pet" class="pet-preview-avatar" />
+                <!-- webp 精灵图用 PetSprite 动画，其他格式用普通 img -->
+                <PetSprite
+                  v-if="petInfo.petUrl && isWebpSprite(petInfo.petUrl)"
+                  :sprite-url="petInfo.petUrl"
+                  :frame-width="192"
+                  :frame-height="208"
+                  :total-cols="8"
+                  :total-rows="9"
+                  :actions="DEFAULT_SPRITE_ACTIONS"
+                  :scale="96 / 192"
+                  :auto-play="true"
+                  :auto-play-min-interval="3000"
+                  :auto-play-max-interval="8000"
+                  class="pet-preview-avatar--sprite"
+                />
+                <img v-else-if="petInfo.petUrl" :src="petInfo.petUrl" alt="pet" class="pet-preview-avatar" />
                 <div class="pet-level-chip">Lv.{{ petInfo.level || 1 }}</div>
               </div>
               <div class="equip-column">
@@ -105,6 +120,8 @@ import { useRoute, useRouter } from "vue-router";
 import { userApi } from "../api";
 import { petApi } from "../api/pet";
 import { useUserStore } from "../stores/user";
+import PetSprite from "../components/PetSprite.vue";
+import { isWebpSprite, DEFAULT_SPRITE_ACTIONS } from "../utils/petRender";
 
 const route = useRoute();
 const router = useRouter();
@@ -489,6 +506,11 @@ onMounted(async () => {
   height: 116px;
   border-radius: 50%;
   border: 4px solid #fdba74;
+}
+
+/* webp 精灵图不需要圆形裁剪 */
+.pet-preview-avatar--sprite {
+  border: none;
 }
 
 .pet-level-chip {

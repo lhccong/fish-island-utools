@@ -133,7 +133,21 @@
             <div class="user-info">
               <div class="user-name">{{ item.userName || "未知用户" }}</div>
               <div class="pet-info" v-if="item.petName">
+                <!-- webp 精灵图用 PetSprite，其他格式用 img -->
+                <PetSprite
+                  v-if="item.petAvatar && isWebpSprite(item.petAvatar)"
+                  :sprite-url="item.petAvatar"
+                  :frame-width="192"
+                  :frame-height="208"
+                  :total-cols="8"
+                  :total-rows="9"
+                  :actions="DEFAULT_SPRITE_ACTIONS"
+                  :scale="24 / 192"
+                  :auto-play="false"
+                  class="pet-avatar-sprite"
+                />
                 <img
+                  v-else
                   :src="item.petAvatar || '/default-avatar.png'"
                   :alt="item.petName"
                   class="pet-avatar"
@@ -158,6 +172,8 @@ import { ref, onMounted } from "vue";
 import { bossApi } from "../api/boss";
 import { ElMessage } from "element-plus";
 import BossBattleScene from "../components/BossBattleScene.vue";
+import PetSprite from "../components/PetSprite.vue";
+import { isWebpSprite, DEFAULT_SPRITE_ACTIONS } from "../utils/petRender";
 
 const loading = ref(false);
 const bossList = ref([]);

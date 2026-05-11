@@ -15,7 +15,22 @@
       <div class="game-tab-content">
         <div v-if="activeTab === 'pet'" class="my-pet-card tab-pane-scroll" v-loading="petLoading">
           <div v-if="petInfo" class="my-pet-content">
-            <img v-if="petInfo.petUrl" :src="petInfo.petUrl" alt="宠物形象" class="pet-avatar" />
+            <!-- webp 精灵图用 PetSprite 动画，其他格式用普通 img -->
+            <PetSprite
+              v-if="petInfo.petUrl && isWebpSprite(petInfo.petUrl)"
+              :sprite-url="petInfo.petUrl"
+              :frame-width="192"
+              :frame-height="208"
+              :total-cols="8"
+              :total-rows="9"
+              :actions="DEFAULT_SPRITE_ACTIONS"
+              :scale="80 / 192"
+              :auto-play="true"
+              :auto-play-min-interval="3000"
+              :auto-play-max-interval="8000"
+              class="pet-avatar pet-avatar--sprite"
+            />
+            <img v-else-if="petInfo.petUrl" :src="petInfo.petUrl" alt="宠物形象" class="pet-avatar" />
             <div class="pet-meta">
               <div class="pet-name">{{ petInfo.name || "未命名宠物" }}</div>
               <div class="pet-stats">
@@ -58,7 +73,22 @@
                   </div>
                 </div>
                 <div class="pet-preview">
-                  <img v-if="petInfo.petUrl" :src="petInfo.petUrl" alt="pet" class="pet-preview-avatar" />
+                  <!-- webp 精灵图用 PetSprite 动画，其他格式用普通 img -->
+                  <PetSprite
+                    v-if="petInfo.petUrl && isWebpSprite(petInfo.petUrl)"
+                    :sprite-url="petInfo.petUrl"
+                    :frame-width="192"
+                    :frame-height="208"
+                    :total-cols="8"
+                    :total-rows="9"
+                    :actions="DEFAULT_SPRITE_ACTIONS"
+                    :scale="96 / 192"
+                    :auto-play="true"
+                    :auto-play-min-interval="3000"
+                    :auto-play-max-interval="8000"
+                    class="pet-preview-avatar pet-preview-avatar--sprite"
+                  />
+                  <img v-else-if="petInfo.petUrl" :src="petInfo.petUrl" alt="pet" class="pet-preview-avatar" />
                   <div class="pet-level-chip">Lv.{{ petInfo.level || 1 }}</div>
                 </div>
                 <div class="equip-column">
@@ -161,7 +191,22 @@
                           :class="{ 'skin-shop-card--owned': skin.owned }"
                         >
                           <div class="skin-shop-cover">
-                            <img v-if="skin.url" :src="skin.url" :alt="skin.name || 'pet'" />
+                            <!-- webp 精灵图用 PetSprite 动画，其他格式用普通 img -->
+                            <PetSprite
+                              v-if="skin.url && isWebpSprite(skin.url)"
+                              :sprite-url="skin.url"
+                              :frame-width="192"
+                              :frame-height="208"
+                              :total-cols="8"
+                              :total-rows="9"
+                              :actions="DEFAULT_SPRITE_ACTIONS"
+                              :scale="80 / 192"
+                              :auto-play="true"
+                              :auto-play-min-interval="3000"
+                              :auto-play-max-interval="8000"
+                              class="skin-shop-sprite"
+                            />
+                            <img v-else-if="skin.url" :src="skin.url" :alt="skin.name || 'pet'" />
                             <span v-if="isSkinCurrent(skin)" class="skin-current-badge">当前使用</span>
                           </div>
                           <div class="skin-shop-body">
@@ -213,7 +258,22 @@
                         class="skin-shop-card skin-shop-card--owned"
                       >
                         <div class="skin-shop-cover">
-                          <img v-if="skin.url" :src="skin.url" :alt="skin.name || 'pet'" />
+                          <!-- webp 精灵图用 PetSprite 动画，其他格式用普通 img -->
+                          <PetSprite
+                            v-if="skin.url && isWebpSprite(skin.url)"
+                            :sprite-url="skin.url"
+                            :frame-width="192"
+                            :frame-height="208"
+                            :total-cols="8"
+                            :total-rows="9"
+                            :actions="DEFAULT_SPRITE_ACTIONS"
+                            :scale="80 / 192"
+                            :auto-play="true"
+                            :auto-play-min-interval="3000"
+                            :auto-play-max-interval="8000"
+                            class="skin-shop-sprite"
+                          />
+                          <img v-else-if="skin.url" :src="skin.url" :alt="skin.name || 'pet'" />
                           <span v-if="isSkinCurrent(skin)" class="skin-current-badge">当前使用</span>
                         </div>
                         <div class="skin-shop-body">
@@ -250,7 +310,19 @@
             <el-table-column label="宠物">
               <template #default="{ row }">
                 <div class="rank-pet-cell">
-                  <img :src="row.petUrl" alt="pet" />
+                  <!-- webp 精灵图用 PetSprite 动画，其他格式用普通 img -->
+                  <PetSprite
+                    v-if="row.petUrl && isWebpSprite(row.petUrl)"
+                    :sprite-url="row.petUrl"
+                    :frame-width="192"
+                    :frame-height="208"
+                    :total-cols="8"
+                    :total-rows="9"
+                    :actions="DEFAULT_SPRITE_ACTIONS"
+                    :scale="32 / 192"
+                    :auto-play="false"
+                  />
+                  <img v-else :src="row.petUrl" alt="pet" />
                   <span>{{ row.name || "未知宠物" }}</span>
                 </div>
               </template>
@@ -413,7 +485,22 @@
     <el-dialog v-model="otherPetVisible" title="TA 的宠物" width="500px">
       <div v-loading="otherPetLoading" class="other-pet-content">
         <template v-if="otherPetInfo">
-          <img v-if="otherPetInfo.petUrl" :src="otherPetInfo.petUrl" alt="other pet" class="other-pet-avatar" />
+          <!-- webp 精灵图用 PetSprite 动画，其他格式用普通 img -->
+          <PetSprite
+            v-if="otherPetInfo.petUrl && isWebpSprite(otherPetInfo.petUrl)"
+            :sprite-url="otherPetInfo.petUrl"
+            :frame-width="192"
+            :frame-height="208"
+            :total-cols="8"
+            :total-rows="9"
+            :actions="DEFAULT_SPRITE_ACTIONS"
+            :scale="96 / 192"
+            :auto-play="true"
+            :auto-play-min-interval="3000"
+            :auto-play-max-interval="8000"
+            class="other-pet-avatar other-pet-avatar--sprite"
+          />
+          <img v-else-if="otherPetInfo.petUrl" :src="otherPetInfo.petUrl" alt="other pet" class="other-pet-avatar" />
           <div>{{ otherPetInfo.name || "未命名宠物" }}</div>
           <div>等级：{{ otherPetInfo.level ?? "--" }}</div>
           <div>心情：{{ otherPetInfo.mood ?? "--" }}</div>
@@ -435,6 +522,8 @@ import { petSkinApi } from "../api/petSkin";
 import { petEquipForgeApi } from "../api/petEquipForge";
 import BossBattle from "./BossBattle.vue";
 import Lottery from "./Lottery.vue";
+import PetSprite from "../components/PetSprite.vue";
+import { isWebpSprite, DEFAULT_SPRITE_ACTIONS } from "../utils/petRender";
 
 const activeTab = ref("pet");
 const tabs = [
@@ -1372,6 +1461,12 @@ onMounted(async () => {
   border: 4px solid #fdba74;
 }
 
+/* webp 精灵图不需要圆形裁剪 */
+.pet-preview-avatar--sprite {
+  border: none;
+  border-radius: 0;
+}
+
 .pet-level-chip {
   background: #f97316;
   color: #fff;
@@ -1685,6 +1780,11 @@ onMounted(async () => {
   object-fit: contain;
 }
 
+/* webp 精灵图在皮肤卡片中的居中展示 */
+.skin-shop-sprite {
+  display: block;
+}
+
 .skin-current-badge {
   position: absolute;
   top: 8px;
@@ -1813,6 +1913,11 @@ onMounted(async () => {
   width: 90px;
   height: 90px;
   object-fit: contain;
+}
+
+/* webp 精灵图不需要 object-fit */
+.pet-avatar--sprite {
+  object-fit: unset;
 }
 
 .pet-meta {

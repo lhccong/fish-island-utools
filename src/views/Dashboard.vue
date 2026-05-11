@@ -84,8 +84,23 @@
               </div>
               <div v-else-if="petInfo" class="pet-content">
                 <div class="pet-main">
+                  <!-- webp 精灵图用 PetSprite 动画，其他格式用普通 img -->
+                  <PetSprite
+                    v-if="petInfo.petUrl && isWebpSprite(petInfo.petUrl)"
+                    :sprite-url="petInfo.petUrl"
+                    :frame-width="192"
+                    :frame-height="208"
+                    :total-cols="8"
+                    :total-rows="9"
+                    :actions="DEFAULT_SPRITE_ACTIONS"
+                    :scale="64 / 192"
+                    :auto-play="true"
+                    :auto-play-min-interval="3000"
+                    :auto-play-max-interval="8000"
+                    class="pet-avatar pet-avatar--sprite"
+                  />
                   <img
-                    v-if="petInfo.petUrl"
+                    v-else-if="petInfo.petUrl"
                     class="pet-avatar"
                     :src="petInfo.petUrl"
                     alt="宠物形象"
@@ -162,6 +177,8 @@ import { useUserStore } from "../stores/user";
 import { useLivenessStore } from "../stores/liveness";
 import { useDashboardStore } from "../stores/dashboard";
 import { ElMessage } from "element-plus";
+import PetSprite from "../components/PetSprite.vue";
+import { isWebpSprite, DEFAULT_SPRITE_ACTIONS } from "../utils/petRender";
 
 const userStore = useUserStore();
 const livenessStore = useLivenessStore();
@@ -725,6 +742,12 @@ const handleCheckin = async () => {
   border: none;
   animation: pet-avatar-breathe 4s ease-in-out infinite;
   will-change: transform;
+}
+
+/* webp 精灵图不需要呼吸动画，由精灵图自身动画驱动 */
+.pet-avatar--sprite {
+  animation: none;
+  border-radius: 0;
 }
 
 @keyframes pet-avatar-breathe {

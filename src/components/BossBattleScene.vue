@@ -11,7 +11,23 @@
       <!-- 玩家信息面板 -->
       <div class="character-panel player-panel">
         <div class="character-avatar">
+          <!-- webp 精灵图用 PetSprite，其他格式用 img -->
+          <PetSprite
+            v-if="battleInfo?.petInfo?.avatar && isWebpSprite(battleInfo.petInfo.avatar)"
+            :sprite-url="battleInfo.petInfo.avatar"
+            :frame-width="192"
+            :frame-height="208"
+            :total-cols="8"
+            :total-rows="9"
+            :actions="DEFAULT_SPRITE_ACTIONS"
+            :scale="60 / 192"
+            :auto-play="true"
+            :auto-play-min-interval="3000"
+            :auto-play-max-interval="8000"
+            class="character-avatar-sprite"
+          />
           <img
+            v-else
             :src="battleInfo?.petInfo?.avatar || '/default-avatar.png'"
             :alt="battleInfo?.petInfo?.name"
             @error="handleImageError"
@@ -80,8 +96,23 @@
     <div class="game-scene">
       <!-- 左侧宠物头像 -->
       <div class="scene-character player-character" :class="{ 'attacking': isPetAttacking, 'hit': isPetHit }">
-        <div class="scene-avatar">
+        <div class="scene-avatar" :class="{ 'scene-avatar--sprite': isWebpSprite(battleInfo?.petInfo?.avatar) }">
+          <!-- webp 精灵图用 PetSprite，其他格式用 img -->
+          <PetSprite
+            v-if="battleInfo?.petInfo?.avatar && isWebpSprite(battleInfo.petInfo.avatar)"
+            :sprite-url="battleInfo.petInfo.avatar"
+            :frame-width="192"
+            :frame-height="208"
+            :total-cols="8"
+            :total-rows="9"
+            :actions="DEFAULT_SPRITE_ACTIONS"
+            :scale="150 / 192"
+            :auto-play="true"
+            :auto-play-min-interval="3000"
+            :auto-play-max-interval="8000"
+          />
           <img
+            v-else
             :src="battleInfo?.petInfo?.avatar || '/default-avatar.png'"
             :alt="battleInfo?.petInfo?.name"
             @error="handleImageError"
@@ -155,6 +186,8 @@
 import { ref, computed, watch } from "vue";
 import { bossApi } from "../api/boss";
 import { ElMessage } from "element-plus";
+import PetSprite from "./PetSprite.vue";
+import { isWebpSprite, DEFAULT_SPRITE_ACTIONS } from "../utils/petRender";
 
 const props = defineProps({
   battleInfo: {
@@ -492,6 +525,11 @@ const sleep = (ms) => {
   object-fit: cover;
 }
 
+/* webp 精灵图头像：不裁剪，直接展示动画 */
+.character-avatar-sprite {
+  display: block;
+}
+
 .character-info {
   flex: 1;
   display: flex;
@@ -619,6 +657,19 @@ const sleep = (ms) => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* webp 精灵图场景头像：不裁剪圆形，保留精灵图完整帧 */
+.scene-avatar--sprite {
+  border-radius: 50%;
+  overflow: visible;
+  background: transparent;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .player-character {
