@@ -67,6 +67,13 @@
             <i class="fas fa-user-slash"></i>
             黑名单
           </li>
+          <li
+            :class="{ active: activeGroup === 'redeem' }"
+            @click="activeGroup = 'redeem'"
+          >
+            <i class="fas fa-gift"></i>
+            兑换码
+          </li>
         </ul>
       </div>
       <!-- 右侧分组内容 -->
@@ -654,6 +661,38 @@
             </div>
           </div>
         </div>
+        <div v-show="activeGroup === 'redeem'">
+          <div class="data-card redeem-card">
+            <div class="redeem-panel">
+              <div class="redeem-panel-header">
+                <div class="redeem-panel-title">
+                  <i class="fas fa-gift"></i>
+                  <span>兑换码</span>
+                </div>
+                <p class="redeem-panel-description">
+                  请输入兑换码，兑换成功后奖励将自动发放到当前账户。
+                </p>
+              </div>
+              <div class="redeem-form">
+                <el-input
+                  v-model="redeemCode"
+                  placeholder="请输入兑换码"
+                  clearable
+                  @keyup.enter="submitRedeemCode"
+                />
+                <div class="redeem-actions">
+                  <el-button
+                    type="primary"
+                    :loading="redeemLoading"
+                    @click="submitRedeemCode"
+                  >
+                    立即兑换
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <AboutAuthor v-model:visible="aboutAuthorVisible" />
@@ -665,6 +704,7 @@ import { ref, reactive, onMounted, computed, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import { userApi } from "../api/user";
+import { redeemCodeApi } from "../api/redeemCode";
 import { useUserStore } from "../stores/user";
 import { theme, setTheme, toggleTheme, getSystemTheme } from "../utils/theme";
 import { showMoYuReminder } from "../utils/moyuWindow";
@@ -688,6 +728,8 @@ const salary = ref(5000);
 const payday = ref(1);
 const activeGroup = ref("theme");
 const detachWindowSearchBar = ref(false);
+const redeemCode = ref("");
+const redeemLoading = ref(false);
 
 const defaultAvatars = [
   "https://img2.baidu.com/it/u=3757990320,1019789652&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800",
@@ -866,6 +908,29 @@ async function saveProfile() {
     ElMessage.error(e.message || "保存失败");
   } finally {
     profileSaving.value = false;
+  }
+}
+
+async function submitRedeemCode() {
+  const code = (redeemCode.value || "").trim();
+  if (!code) {
+    ElMessage.warning("请输入兑换码");
+    return;
+  }
+
+  redeemLoading.value = true;
+  try {
+    const res = await redeemCodeApi.useRedeemCode(code);
+    if (res.code !== 0) {
+      throw new Error(res.message || res.msg || "兑换失败，请检查兑换码是否正确");
+    }
+    ElMessage.success(res.data?.message || "兑换成功");
+    redeemCode.value = "";
+    await userStore.fetchUserInfo(true);
+  } catch (e) {
+    ElMessage.error(e.message || "兑换失败，请稍后重试");
+  } finally {
+    redeemLoading.value = false;
   }
 }
 
@@ -1384,9 +1449,88 @@ const showAboutAuthor = () => {
   width: 200px;
 }
 
+.redeem-card {
+  max-width: 460px;
+  margin-top: 8px;
+  padding: 0;
+}
+
+.redeem-panel {
+  padding: 28px 32px 24px;
+}
+
+.redeem-panel-header {
+  margin-bottom: 18px;
+}
+
+.redeem-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-color, #1a1f36);
+  margin-bottom: 10px;
+}
+
+.redeem-panel-title i {
+  color: #fa8c16;
+  font-size: 18px;
+}
+
+.redeem-panel-description {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--sub-text-color, #697386);
+}
+
+.redeem-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.redeem-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.redeem-actions .el-button {
+  min-width: 128px;
+  height: 40px;
+  padding: 0 22px;
+  border-radius: 10px;
+}
+
+.redeem-form :deep(.el-input__wrapper) {
+  min-height: 42px;
+  border-radius: 10px;
+}
+
 @media (max-width: 600px) {
   .settings {
     padding: 1rem;
+  }
+
+  .redeem-card {
+    max-width: none;
+  }
+
+  .redeem-panel {
+    padding: 20px;
+  }
+
+  .redeem-panel-title {
+    font-size: 20px;
+  }
+
+  .redeem-actions {
+    justify-content: stretch;
+  }
+
+  .redeem-actions .el-button {
+    width: 100%;
   }
 }
 
@@ -1449,6 +1593,7 @@ const showAboutAuthor = () => {
 .settings-layout {
   display: flex;
   height: 100%;
+  min-height: 0;
 }
 .settings-sidebar {
   width: 160px;
@@ -1457,11 +1602,15 @@ const showAboutAuthor = () => {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  min-height: 0;
+  overflow-y: auto;
 }
 .group-nav {
   list-style: none;
   margin: 0;
   padding: 0 0 0 0;
+  min-height: 0;
+  padding-bottom: 12px;
 }
 .group-nav li {
   display: flex;
@@ -1498,6 +1647,7 @@ const showAboutAuthor = () => {
   flex: 1;
   padding: 0px 0 0 24px;
   overflow-y: auto;
+  min-height: 0;
 }
 .blacklist-section {
   margin-top: 8px;

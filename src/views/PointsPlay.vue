@@ -3,13 +3,14 @@
     <!-- 顶部横向子菜单 -->
     <div class="points-play-tabs">
       <div
-        :class="['tab-item', { active: activeMenu === 'stock' }]"
-        @click="navigateTo('stock')"
+        v-for="tab in tabs"
+        :key="tab.key"
+        :class="['tab-item', { active: activeMenu === tab.key }]"
+        @click="navigateTo(tab.key)"
       >
-        <el-icon><TrendCharts /></el-icon>
-        <span>摸鱼股市</span>
+        <el-icon><component :is="tab.icon" /></el-icon>
+        <span>{{ tab.label }}</span>
       </div>
-      <!-- 预留更多积分玩法入口 -->
     </div>
     <!-- 内容区 -->
     <div class="points-play-content">
@@ -19,27 +20,33 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, markRaw, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { TrendCharts } from '@element-plus/icons-vue';
+import { Aim, TrendCharts, Trophy } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const route = useRoute();
+
+const tabs = [
+  { key: 'stock', label: '摸鱼股市', icon: markRaw(TrendCharts), path: '/points-play/stock-market' },
+  { key: 'tournament', label: '武道大会', icon: markRaw(Trophy), path: '/points-play/tournament' },
+  { key: 'tower', label: '宠物爬塔', icon: markRaw(Aim), path: '/points-play/tower' },
+];
 
 // 根据当前路由确定激活的菜单
 const activeMenu = ref('stock');
 
 // 监听路由变化更新激活状态
 watch(() => route.path, (newPath) => {
-  if (newPath.includes('/points-play/stock-market')) {
-    activeMenu.value = 'stock';
-  }
+  const current = tabs.find((tab) => newPath.includes(tab.path));
+  activeMenu.value = current?.key || 'stock';
 }, { immediate: true });
 
 // 导航到子页面
 const navigateTo = (menu) => {
-  if (menu === 'stock') {
-    router.push('/points-play/stock-market');
+  const tab = tabs.find((item) => item.key === menu);
+  if (tab && route.path !== tab.path) {
+    router.push(tab.path);
   }
 };
 </script>
@@ -60,6 +67,7 @@ const navigateTo = (menu) => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color, #e8e8e8);
@@ -97,7 +105,16 @@ const navigateTo = (menu) => {
 
 .points-play-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.points-play-content::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 </style>

@@ -60,15 +60,21 @@
                 <span v-else>{{ (m.userName || "摸").charAt(0) }}</span>
               </div>
               <div class="moment-body">
-                <div
-                  class="moment-user"
-                  @click="
-                    m.userId && String(m.userId) !== String(meId)
-                      ? handleViewUserCircle(m.userId, m.userAvatar, m.userName)
-                      : undefined
-                  "
-                >
-                  {{ m.userName }}
+                <div class="moment-header-meta">
+                  <div
+                    class="moment-user"
+                    @click="
+                      m.userId && String(m.userId) !== String(meId)
+                        ? handleViewUserCircle(m.userId, m.userAvatar, m.userName)
+                        : undefined
+                    "
+                  >
+                    {{ m.userName }}
+                  </div>
+                  <div class="moment-time-row">
+                    <span class="moment-time">{{ formatTime(m.createTime) }}</span>
+                    <span v-if="m.isTop === 1" class="moment-top-tag">置顶</span>
+                  </div>
                 </div>
                 <div v-if="m.content" class="moment-text">{{ m.content }}</div>
                 <div v-if="imageUrls(m).length" :class="gridClass(imageUrls(m).length)">
@@ -89,10 +95,9 @@
                   class="like-users-bar"
                 >
                   <i class="fas fa-heart like-users-icon" />
-                  <span>{{ m.likeUserNames.split(",").filter(Boolean).join("，") }}</span>
+                  <span>{{ renderLikeUsers(m.likeUserNames) }}</span>
                 </div>
                 <div class="moment-footer">
-                  <span class="moment-time">{{ formatTime(m.createTime) }}</span>
                   <div class="moment-actions">
                     <button
                       type="button"
@@ -136,6 +141,19 @@
                           <el-dropdown-item @click="openEdit(m)">
                             <i class="fas fa-edit" /> 修改
                           </el-dropdown-item>
+                          <el-dropdown-item
+                            v-if="String(m.userId) === String(meId)"
+                            @click="openLottery(m.id)"
+                          >
+                            <i class="fas fa-trophy" /> 发起抽奖
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            v-if="isAdmin"
+                            @click="handleToggleTop(m.id, m.isTop || 0)"
+                          >
+                            <i class="fas fa-thumbtack" />
+                            {{ m.isTop === 1 ? "取消置顶" : "置顶动态" }}
+                          </el-dropdown-item>
                           <el-dropdown-item @click="confirmDelete(m.id)">
                             <span style="color: var(--el-color-danger)"><i class="fas fa-trash" /> 删除</span>
                           </el-dropdown-item>
@@ -172,7 +190,7 @@
                       <span class="comment-username">{{ c.userName }}</span>
                       <div class="comment-content-text" v-html="renderCommentHtml(c.content)" />
                       <div class="comment-meta">
-                        <span>{{ formatTime(c.createTime) }}</span>
+                        <span class="comment-time">{{ formatTime(c.createTime) }}</span>
                         <span
                           class="link"
                           @click="
@@ -215,7 +233,7 @@
                               </span>
                               <div class="comment-content-text" v-html="renderCommentHtml(child.content)" />
                               <div class="comment-meta">
-                                <span>{{ formatTime(child.createTime) }}</span>
+                                <span class="comment-time">{{ formatTime(child.createTime) }}</span>
                                 <span
                                   class="link"
                                   @click="
@@ -420,6 +438,92 @@
       </template>
     </el-dialog>
 
+    <!-- 抽奖 -->
+    <el-dialog
+      v-model="lotteryOpen"
+      width="420px"
+      destroy-on-close
+      align-center
+      @closed="resetLotteryDialog"
+    >
+      <template #header>
+        <span class="lottery-dialog-title">
+          <i class="fas fa-trophy" />
+          发起抽奖
+        </span>
+      </template>
+      <div class="lottery-modal-content">
+        <template v-if="!lotteryResult">
+          <p class="lottery-desc">
+            从给这条动态点赞的用户中随机抽取幸运儿，抽奖结果将自动发布到评论区
+          </p>
+          <div class="lottery-count-row">
+            <span class="lottery-count-label">抽取人数</span>
+            <el-input-number
+              v-model="lotteryWinnerCount"
+              :min="1"
+              :max="100"
+              controls-position="right"
+              style="width: 160px"
+            />
+          </div>
+          <div class="lottery-presets">
+            <span
+              v-for="value in [1, 3, 5, 10]"
+              :key="value"
+              :class="['lottery-preset-item', { active: lotteryWinnerCount === value }]"
+              @click="lotteryWinnerCount = value"
+            >
+              {{ value }} 人
+            </span>
+          </div>
+          <div class="lottery-footer">
+            <el-button round @click="closeLotteryDialog">取消</el-button>
+            <el-button
+              type="primary"
+              round
+              :loading="lotterying"
+              @click="handleStartLottery"
+            >
+              <i class="fas fa-trophy" />
+              开始抽奖
+            </el-button>
+          </div>
+        </template>
+        <div v-else class="lottery-result">
+          <div class="lottery-result-title">🎉 抽奖结果</div>
+          <div v-if="!lotteryResult.winners.length" class="lottery-no-winner">
+            暂无点赞用户，无法抽奖
+          </div>
+          <div v-else class="lottery-winners-list">
+            <div
+              v-for="(winner, index) in lotteryResult.winners"
+              :key="winner.userId || winner.userName || index"
+              class="lottery-winner-item"
+            >
+              <span class="lottery-winner-rank">第 {{ index + 1 }} 名</span>
+              <img
+                v-if="winner.userAvatar"
+                :src="winner.userAvatar"
+                class="lottery-winner-avatar"
+                alt=""
+              />
+              <span v-else class="lottery-winner-avatar lottery-winner-avatar-placeholder">
+                {{ (winner.userName || "?").charAt(0) }}
+              </span>
+              <span class="lottery-winner-name">{{ winner.userName || "未知用户" }}</span>
+            </div>
+          </div>
+          <p class="lottery-result-hint">抽奖结果已自动发布到评论区 🎊</p>
+          <div class="lottery-footer">
+            <el-button type="primary" round @click="closeLotteryDialog">
+              知道了
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
     <!-- 打赏 -->
     <el-dialog
       v-model="rewardOpen"
@@ -469,6 +573,14 @@ import { useUserStore } from "../stores/user";
 import { userApi } from "../api/user";
 import * as momentsApi from "../api/moments";
 import { createImagePreviewWindow } from "../utils/imagePreview";
+import {
+  extractCommentImages,
+  formatMomentTime,
+  normalizeLotteryResult,
+  renderLikeUsers,
+  sortMomentsWithTopFirst,
+  stripCommentImageMarkers,
+} from "../utils/fishCircle";
 
 const route = useRoute();
 const userStore = useUserStore();
@@ -513,6 +625,12 @@ const rewardMomentId = ref(null);
 const rewardPoints = ref(10);
 const rewarding = ref(false);
 
+const lotteryOpen = ref(false);
+const lotteryMomentId = ref(null);
+const lotteryWinnerCount = ref(1);
+const lotterying = ref(false);
+const lotteryResult = ref(null);
+
 const PAGE_SIZE = 10;
 
 const meId = computed(() => {
@@ -542,21 +660,7 @@ const coverBgUrl = computed(() => {
 });
 
 function formatTime(timeStr) {
-  if (!timeStr) return "";
-  const t = new Date(timeStr.replace(/-/g, "/"));
-  if (Number.isNaN(t.getTime())) return "";
-  const now = Date.now();
-  const diffMin = Math.floor((now - t.getTime()) / 60000);
-  const diffH = Math.floor(diffMin / 60);
-  const diffD = Math.floor(diffH / 24);
-  if (diffMin < 1) return "刚刚";
-  if (diffMin < 60) return `${diffMin}分钟前`;
-  if (diffH < 24) return `${diffH}小时前`;
-  if (diffD === 1) return "昨天";
-  if (diffD < 7) return `${diffD}天前`;
-  const mo = t.getMonth() + 1;
-  const d = t.getDate();
-  return `${mo}月${d}日`;
+  return formatMomentTime(timeStr);
 }
 
 function imageUrls(m) {
@@ -592,21 +696,9 @@ function setCommentImages(mid, urls) {
   commentImagesMap.value = next;
 }
 
-function imgRegexParts(content) {
-  if (!content) return { text: "", urls: [] };
-  const urls = [];
-  const re = /\[img:(https?:\/\/[^\]]+)\]/g;
-  let text = content;
-  let m;
-  while ((m = re.exec(content)) !== null) {
-    urls.push(m[1]);
-    text = text.replace(m[0], "");
-  }
-  return { text: text.trim(), urls };
-}
-
 function renderCommentHtml(content) {
-  const { text, urls } = imgRegexParts(content || "");
+  const text = stripCommentImageMarkers(content);
+  const urls = extractCommentImages(content);
   let html = escapeHtml(text);
   urls.forEach((u) => {
     html += `<div class="cmt-img-wrap"><img src="${escapeAttr(u)}" class="cmt-img" alt="" /></div>`;
@@ -1014,6 +1106,79 @@ async function onEditFiles(e) {
   }
 }
 
+function openLottery(momentId) {
+  lotteryMomentId.value = momentId;
+  lotteryWinnerCount.value = 1;
+  lotteryResult.value = null;
+  lotteryOpen.value = true;
+}
+
+function resetLotteryDialog() {
+  lotteryMomentId.value = null;
+  lotteryResult.value = null;
+  lotteryWinnerCount.value = 1;
+}
+
+function closeLotteryDialog() {
+  lotteryOpen.value = false;
+  resetLotteryDialog();
+}
+
+async function handleToggleTop(momentId, currentIsTop) {
+  try {
+    const nextIsTop = currentIsTop === 1 ? 0 : 1;
+    const res = await momentsApi.topMoment({
+      momentId,
+      top: nextIsTop === 1,
+    });
+    if (res.code !== 0) {
+      throw new Error(res.message || res.msg || "操作失败");
+    }
+    moments.value = sortMomentsWithTopFirst(
+      moments.value.map((item) =>
+        item.id === momentId ? { ...item, isTop: nextIsTop } : item
+      )
+    );
+    ElMessage.success(nextIsTop === 1 ? "已置顶" : "已取消置顶");
+  } catch (e) {
+    ElMessage.error(e.message || "操作失败");
+  }
+}
+
+async function handleStartLottery() {
+  if (!lotteryMomentId.value) return;
+
+  lotterying.value = true;
+  try {
+    const res = await momentsApi.startMomentLottery({
+      momentId: lotteryMomentId.value,
+      winnerCount: lotteryWinnerCount.value,
+    });
+    if (res.code !== 0) {
+      throw new Error(
+        res.message || res.msg || "抽奖失败，请确认有足够的点赞用户"
+      );
+    }
+
+    lotteryResult.value = normalizeLotteryResult(res.data);
+    const updated = await momentsApi.listMomentComments({
+      momentId: lotteryMomentId.value,
+      current: 1,
+      pageSize: 50,
+    });
+    commentsMap.value = {
+      ...commentsMap.value,
+      [lotteryMomentId.value]: updated.data?.records || [],
+    };
+    showInputId.value = lotteryMomentId.value;
+    ElMessage.success("抽奖完成");
+  } catch (e) {
+    ElMessage.error(e.message || "抽奖失败");
+  } finally {
+    lotterying.value = false;
+  }
+}
+
 function openReward(mid) {
   rewardMomentId.value = mid;
   rewardPoints.value = 10;
@@ -1312,7 +1477,7 @@ watch(
 
 .moment-content {
   display: flex;
-  gap: var(--fc-content-gap);
+  gap: 10px;
 }
 
 .moment-avatar {
@@ -1344,7 +1509,23 @@ watch(
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
+}
+
+.moment-header-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 6px;
+}
+
+.moment-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .moment-text {
@@ -1423,9 +1604,19 @@ watch(
   color: #999;
 }
 
+.moment-top-tag {
+  font-size: 12px;
+  color: var(--primary-color, #409eff);
+  background: rgba(64, 158, 255, 0.1);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 .moment-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
 }
 
@@ -1520,13 +1711,16 @@ watch(
 }
 
 .comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
   margin-top: 6px;
   font-size: 12px;
   color: #bbb;
 }
 
 .comment-meta .link {
-  margin-left: 8px;
   cursor: pointer;
   color: #bbb;
   transition: color 0.15s;
@@ -1715,6 +1909,164 @@ watch(
   margin-top: 12px;
 }
 
+.lottery-dialog-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lottery-dialog-title .fa-trophy {
+  color: #f4ac70;
+}
+
+.lottery-modal-content {
+  padding: 8px 4px;
+}
+
+.lottery-desc {
+  color: #999;
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0 0 20px;
+}
+
+.lottery-count-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.lottery-count-label {
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lottery-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.lottery-preset-item {
+  flex: 1;
+  min-width: 60px;
+  text-align: center;
+  padding: 8px 0;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #595959;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lottery-preset-item:hover {
+  border-color: #f4ac70;
+  color: #f4ac70;
+}
+
+.lottery-preset-item.active {
+  border-color: #f4ac70;
+  background: rgba(244, 172, 112, 0.1);
+  color: #f4ac70;
+  font-weight: 600;
+}
+
+.lottery-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.lottery-footer :deep(.el-button--primary) {
+  background: linear-gradient(135deg, #f4ac70 0%, #f07c3a 100%);
+  border: none;
+  padding: 8px 24px;
+}
+
+.lottery-footer :deep(.el-button:not(.el-button--primary)) {
+  padding: 8px 24px;
+}
+
+.lottery-footer .fa-trophy {
+  margin-right: 4px;
+}
+
+.lottery-result {
+  text-align: center;
+}
+
+.lottery-result-title {
+  color: #1a1a1a;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.lottery-no-winner {
+  color: #999;
+  font-size: 14px;
+  padding: 20px 0;
+}
+
+.lottery-winners-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.lottery-winner-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fffdf9 0%, #fff8f0 100%);
+  border: 1px solid rgba(244, 172, 112, 0.3);
+  border-radius: 12px;
+}
+
+.lottery-winner-rank {
+  color: #f4ac70;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 40px;
+}
+
+.lottery-winner-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #f4ac70;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lottery-winner-name {
+  color: #1a1a1a;
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.lottery-result-hint {
+  color: #999;
+  font-size: 13px;
+  margin: 0 0 4px;
+}
+
 .reward-desc {
   font-size: 13px;
   color: #666;
@@ -1754,6 +2106,37 @@ watch(
 @media (max-width: 900px) {
   .fish-sidebar {
     display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .cover-header {
+    min-height: 180px;
+  }
+
+  .main-layout-inner {
+    padding: 10px;
+  }
+
+  .moment-item {
+    padding: 14px;
+  }
+
+  .comment-section {
+    margin-left: 0;
+  }
+
+  .comment-input-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .comment-input-row .el-input {
+    flex-basis: 100%;
+  }
+
+  .lottery-modal-content {
+    padding: 4px 0;
   }
 }
 </style>
