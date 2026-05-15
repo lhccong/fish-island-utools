@@ -11,4 +11,7 @@ export { itemInstancesApi } from "./itemInstances";
 export { petSkinApi } from "./petSkin";
 export { stockApi } from "./stock";
 export { petEquipForgeApi } from "./petEquipForge";
+export { redeemCodeApi } from "./redeemCode";
+export { petTournamentApi } from "./petTournament";
+export { towerClimbApi } from "./towerClimb";
 export * as momentsApi from "./moments";

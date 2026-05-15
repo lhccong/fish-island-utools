@@ -18,6 +18,9 @@ import PetCenter from "../views/PetCenter.vue";
 import PointsPlay from "../views/PointsPlay.vue";
 import StockMarket from "../views/StockMarket.vue";
 import FishCircle from "../views/FishCircle.vue";
+import PetTournament from "../views/PetTournament.vue";
+import TowerClimb from "../views/TowerClimb.vue";
+import PetFight from "../views/PetFight.vue";
 
 const routes = [
   {
@@ -98,6 +101,21 @@ const routes = [
             path: "stock-market",
             name: "StockMarket",
             component: StockMarket,
+          },
+          {
+            path: "tournament",
+            name: "PetTournament",
+            component: PetTournament,
+          },
+          {
+            path: "tower",
+            name: "TowerClimb",
+            component: TowerClimb,
+          },
+          {
+            path: "pet-fight",
+            name: "PetFight",
+            component: PetFight,
           },
         ],
       },

@@ -22,6 +22,10 @@ export const petApi = {
     return request.get("/api/pet/other", params);
   },
 
+  getPetBattleInfo(params = {}) {
+    return request.get("/api/pet/battle/info", params);
+  },
+
   listItemTemplates(params = {}) {
     return request.post("/api/itemTemplates/list/page/vo", {
       current: 1,
