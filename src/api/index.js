@@ -15,3 +15,4 @@ export { redeemCodeApi } from "./redeemCode";
 export { petTournamentApi } from "./petTournament";
 export { towerClimbApi } from "./towerClimb";
 export * as momentsApi from "./moments";
+export { eventRemindApi } from "./eventRemind";

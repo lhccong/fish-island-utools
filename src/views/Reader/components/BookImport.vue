@@ -133,7 +133,7 @@ const props = defineProps({
 
 // 全局变量
 const SEARCH_URL = 'https://reader.yucoder.cn/reader3/searchBookMultiSSE'
-const ACCESS_TOKEN = 'congg:7e0efee65786976202e4fc20c6a98d89'
+const ACCESS_TOKEN = 'congg:8e2d5baf23a6db101eabe8376142d653'
 
 // 搜索相关状态
 const searchKeyword = ref('')

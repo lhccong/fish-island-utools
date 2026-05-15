@@ -126,7 +126,7 @@ const handleSearch = (value) => {
   if (value !== undefined) {
     searchText.value = value
   }
-  
+
   if (!searchText.value.trim()) {
     filteredChapters.value = chapters.value
     return
@@ -181,7 +181,7 @@ const fetchChapterContent = async (chapter) => {
   try {
     const timestamp = new Date().getTime()
     // 从settings中获取accessToken和apiBaseUrl
-    const accessToken = props.settings.accessToken || 'congg:7e0efee65786976202e4fc20c6a98d89'
+    const accessToken = props.settings.accessToken || 'congg:8e2d5baf23a6db101eabe8376142d653'
     const apiBaseUrl = props.settings.apiBaseUrl || 'https://reader.yucoder.cn/reader3'
     const apiUrl = `${apiBaseUrl}${API_URLS.BOOK_CONTENT}?accessToken=${accessToken}&v=${timestamp}`
 
@@ -300,7 +300,7 @@ const refreshChapters = async () => {
 
     const timestamp = new Date().getTime()
     // 从settings中获取accessToken和apiBaseUrl
-    const accessToken = props.settings.accessToken || 'congg:7e0efee65786976202e4fc20c6a98d89'
+    const accessToken = props.settings.accessToken || 'congg:8e2d5baf23a6db101eabe8376142d653'
     const apiBaseUrl = props.settings.apiBaseUrl || 'https://reader.yucoder.cn/reader3'
     const apiUrl = `${apiBaseUrl}${API_URLS.CHAPTER_LIST}?accessToken=${accessToken}&v=${timestamp}`
 
@@ -448,7 +448,7 @@ watch([() => loading.value, () => filteredChapters.value, () => props.book.lastR
           const el = typeof currentChapterRef.value === 'object' && currentChapterRef.value.length > 0
             ? currentChapterRef.value[0]
             : currentChapterRef.value
-          
+
           if (el && el.scrollIntoView) {
             el.scrollIntoView({
               behavior: 'smooth',

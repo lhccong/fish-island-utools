@@ -23,7 +23,7 @@
           </h2>
         </div>
       </div>
-      
+
       <!-- 阅读器工具栏 - 只在阅读器可见时显示 -->
       <div v-if="isReaderVisible && currentBook" class="header-center">
         <el-button
@@ -345,7 +345,7 @@ const getDefaultReaderSettings = () => {
     nextPageKey: 'ArrowRight',
     quickHide: 'none',
     panicKey: 'Escape',
-    accessToken: 'congg:7e0efee65786976202e4fc20c6a98d89',
+    accessToken: 'congg:8e2d5baf23a6db101eabe8376142d653',
     apiBaseUrl: 'https://reader.yucoder.cn/reader3'
   }
 }
@@ -420,7 +420,7 @@ const openReader = (book) => {
     found: !!currentBookData,
     lastReadChapter: currentBookData?.lastReadChapter
   })
-  
+
   const updatedBook = {
     ...book,
     lastReadChapter: currentBookData?.lastReadChapter || 0

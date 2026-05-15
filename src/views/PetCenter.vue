@@ -514,6 +514,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { petApi } from "../api/pet";
 import { userApi } from "../api/user";
@@ -525,6 +526,7 @@ import Lottery from "./Lottery.vue";
 import PetSprite from "../components/PetSprite.vue";
 import { isWebpSprite, DEFAULT_SPRITE_ACTIONS } from "../utils/petRender";
 
+const route = useRoute();
 const activeTab = ref("pet");
 const tabs = [
   { key: "pet", label: "我的宠物", icon: "🏠" },
@@ -1235,6 +1237,10 @@ watch(petInnerTab, (name) => {
 });
 
 onMounted(async () => {
+  const tab = route.query.tab;
+  if (typeof tab === "string" && tabs.some((t) => t.key === tab)) {
+    activeTab.value = tab;
+  }
   await loadPetDetail();
   await Promise.all([loadBagItems(), loadSkins()]);
 });

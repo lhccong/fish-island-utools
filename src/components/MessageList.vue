@@ -223,10 +223,19 @@
 
     <!-- 用户信息卡片弹窗 -->
     <div v-if="showUserInfoModal" class="user-info-modal" @click.self="closeUserInfoCard">
-      <UserInfoCard :userId="selectedUserId" :userName="selectedUserName" :x="userInfoCardX" :y="userInfoCardY"
-        :currentUser="userStore.userInfo?.userName" @close="closeUserInfoCard" @detail="handleUserDetail"
-        @mention="handleUserMention" />
+      <UserInfoCard
+        :userId="selectedUserId"
+        :userName="selectedUserName"
+        :x="userInfoCardX"
+        :y="userInfoCardY"
+        :currentUser="userStore.userInfo?.userName"
+        @close="closeUserInfoCard"
+        @detail="handleOpenUserDetail"
+        @mention="handleUserMention"
+      />
     </div>
+
+    <UserDetailModal v-model="showUserDetailModal" :user="detailModalUser" />
 
     <UserContextMenu :visible="showContextMenu" :x="contextMenuX" :y="contextMenuY" :items="userContextMenuItems"
       @action="handleContextMenuAction" />
@@ -279,6 +288,7 @@ import { userRemarkApi } from "../api/userRemark";
 import { useRouter } from "vue-router";
 import ClientInfo from "./ClientInfo.vue";
 import UserInfoCard from "./UserInfoCard.vue";
+import UserDetailModal from "./UserDetailModal.vue";
 import UserContextMenu from "./UserContextMenu.vue";
 import MsgContextMenu from "./MsgContextMenu.vue";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -1221,6 +1231,8 @@ const showUserProfile = (userId, userName) => {
 
 // 用户信息卡片弹窗
 const showUserInfoModal = ref(false);
+const showUserDetailModal = ref(false);
+const detailModalUser = ref(null);
 const selectedUserId = ref(null);
 const selectedUserName = ref("");
 const userInfoCardX = ref(0);
@@ -1233,8 +1245,8 @@ const openUserInfoCard = (userId, userName, event, sourceMessage = null) => {
   selectedUserName.value = userName;
   selectedUserSourceMessage.value = sourceMessage;
 
-  const cardWidth = 320; // 估算卡片宽度
-  const cardHeight = 450; // 估算卡片高度
+  const cardWidth = 300;
+  const cardHeight = 320;
   const padding = 20; // 边缘边距
 
   let clientX = event.clientX;
@@ -1265,7 +1277,26 @@ const closeUserInfoCard = () => {
   selectedUserSourceMessage.value = null;
 };
 
-// 用户信息卡片操作
+const handleOpenUserDetail = (user) => {
+  const snapshotId = selectedUserId.value;
+  const snapshotName = selectedUserName.value;
+  const payload =
+    user ||
+    (snapshotId || snapshotName
+      ? {
+          id: snapshotId,
+          userId: snapshotId,
+          userName: snapshotName,
+          name: snapshotName,
+        }
+      : null);
+  if (!payload) return;
+  detailModalUser.value = payload;
+  showUserDetailModal.value = true;
+  closeUserInfoCard();
+};
+
+// 用户信息卡片操作（跳转完整主页，保留 WS 消息缓存逻辑）
 const handleUserDetail = (userName) => {
   // 把“点详情时关联的那条消息”按 WS 结构写入缓存，供 UserProfile 页面渲染
   try {

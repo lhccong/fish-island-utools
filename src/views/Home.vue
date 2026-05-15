@@ -44,12 +44,21 @@
             </div>
           </div>
           <div
-            class="user-avatar"
-            @click="showUserProfile"
+            class="user-avatar-wrapper"
+            @click="navigateTo('/event-remind')"
             @mouseenter="showUserCard = true"
             @mouseleave="showUserCard = false"
           >
-            <img :src="userStore.userAvatarURL" alt="用户头像" />
+            <div class="user-avatar">
+              <img :src="userStore.userAvatarURL" alt="用户头像" />
+            </div>
+            <!-- 事件提醒红点，放在 wrapper 上避免被 overflow:hidden 裁掉 -->
+            <span
+              v-if="eventRemindStore.unreadCount > 0"
+              class="avatar-unread-badge"
+            >
+              {{ eventRemindStore.unreadCount > 99 ? '99+' : eventRemindStore.unreadCount }}
+            </span>
           </div>
           <div
             v-if="showUserCard"
@@ -61,6 +70,13 @@
               <i class="fas fa-exchange-alt"></i>
               <span>切换账号</span>
             </div> -->
+            <div
+              class="user-card-item"
+              @click.stop="showUserProfile"
+            >
+              <i class="fas fa-user"></i>
+              <span>我的主页</span>
+            </div>
             <div
               class="user-card-item"
               @click.stop="goEditProfile"
@@ -144,6 +160,7 @@ import { useRouter, useRoute } from "vue-router";
 import { request } from "../api";
 import { useUserStore } from "../stores/user";
 import { useNotificationStore } from "../stores/notification";
+import { useEventRemindStore } from "../stores/eventRemind";
 import { useLivenessStore } from "../stores/liveness";
 import wsManager, { BACKEND_HOST_WS } from "../utils/websocket";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -157,6 +174,7 @@ const route = useRoute();
 const currentPath = computed(() => route.path);
 const userStore = useUserStore();
 const notificationStore = useNotificationStore();
+const eventRemindStore = useEventRemindStore();
 const livenessStore = useLivenessStore();
 const unreadPrivateCount = ref(0);
 const isCollapsed = ref(true);
@@ -293,6 +311,7 @@ onMounted(async () => {
   await userStore.init();
   loadChatroomFullscreenSetting();
   await notificationStore.init();
+  await eventRemindStore.init();
   await livenessStore.init();
 
   // 使用静态logo图片，不再需要动画初始化
@@ -333,6 +352,7 @@ onMounted(async () => {
 onUnmounted(() => {
   // 组件卸载时只关闭 home-channel 连接
   wsManager.close("home-channel");
+  eventRemindStore.stopChecking();
   window.removeEventListener(
     "fishpi:chatroom-fullscreen-changed",
     handleChatroomFullscreenChanged
@@ -422,6 +442,10 @@ const switchToAccount = (account) => {
     userStore.setUserInfo(account);
     showAccountDialog.value = false;
     ElMessage.success("账号切换成功");
+
+    // 重置事件提醒状态并重新拉取
+    eventRemindStore.reset();
+    eventRemindStore.init();
 
     // 重新连接 WebSocket
     wsManager
@@ -523,21 +547,26 @@ const goToLogin = () => {
   position: relative;
 }
 
+.user-avatar-wrapper {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
 .user-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  cursor: pointer;
   overflow: hidden;
-  margin-right: 0;
-  margin-bottom: 4px;
-  flex-shrink: 0;
   border: 2px solid var(--avatar-border, #fff);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
 }
 
-.user-avatar:hover {
+.user-avatar-wrapper:hover .user-avatar {
   transform: scale(1.05);
   border-color: var(--primary-color, #409eff);
   box-shadow: 0 4px 16px rgba(64, 158, 255, 0.3);
@@ -550,8 +579,28 @@ const goToLogin = () => {
   transition: all 0.3s ease;
 }
 
-.user-avatar:hover img {
+.user-avatar-wrapper:hover img {
   filter: brightness(1.2) contrast(1.1);
+}
+
+.avatar-unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background-color: #ff4d4f;
+  color: #fff;
+  border-radius: 10px;
+  padding: 1px 4px;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--sidebar-bg, #fff);
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .nav-item {
@@ -658,33 +707,39 @@ const goToLogin = () => {
 .user-card {
   position: absolute;
   left: 100%;
-  top: 0;
+  bottom: 0;
+  top: auto;
   background-color: var(--card-bg, #fff);
   border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  padding: 8px 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px 0;
   z-index: 1000;
-  min-width: 120px;
+  min-width: 110px;
   margin-left: 10px;
+  border: 1px solid var(--border-color, #eee);
 }
 
 .user-card-item {
-  padding: 8px 16px;
+  padding: 7px 14px;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.2s ease;
+  font-size: 13px;
 }
 .user-card-item span {
-  color: var(--text-color, #222); /* 默认深色，优先用你的主题变量 */
+  color: var(--text-color, #222);
+  font-size: 13px;
+  white-space: nowrap;
 }
 .user-card-item:hover {
   background-color: var(--hover-bg, #f5f5f5);
 }
 
 .user-card-item i {
-  width: 16px;
+  width: 14px;
+  font-size: 13px;
   color: var(--sub-text-color, #666);
 }
 

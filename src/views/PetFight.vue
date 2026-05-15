@@ -52,7 +52,13 @@
             :attacking="leftAttacking"
             :hurt="leftHurt"
           />
-          <div v-if="currentSide === 'left' && battleStatus === 'fighting'" class="turn-indicator">火</div>
+          <div
+            v-if="currentSide === 'left' && battleStatus === 'fighting'"
+            class="turn-indicator"
+            title="当前回合"
+          >
+            <el-icon :size="15"><Lightning /></el-icon>
+          </div>
           <div class="combatant-label">{{ leftFighter.name }}</div>
         </div>
       </div>
@@ -61,7 +67,7 @@
         <div class="combatant" :class="{ activeTurn: currentSide === 'right' }">
           <div class="combat-health-card boss">
             <div class="combat-health-head right">
-              <el-tag size="small" :type="isTower ? 'warning' : 'primary'">Lv.{{ rightFighter.level ?? 1 }}</el-tag>
+              <el-tag size="small" :type="isTower ? 'warning' : isBoss ? 'danger' : 'primary'">Lv.{{ rightFighter.level ?? 1 }}</el-tag>
               <strong>{{ rightFighter.name }}</strong>
             </div>
             <div class="combat-stats right">
@@ -87,11 +93,17 @@
           <FightAvatar
             :fighter="rightFighter"
             size="large"
-            :side="isTower ? 'boss' : 'pet'"
+            :side="isTowerOrBoss ? 'boss' : 'pet'"
             :attacking="rightAttacking"
             :hurt="rightHurt"
           />
-          <div v-if="currentSide === 'right' && battleStatus === 'fighting'" class="turn-indicator">火</div>
+          <div
+            v-if="currentSide === 'right' && battleStatus === 'fighting'"
+            class="turn-indicator"
+            title="当前回合"
+          >
+            <el-icon :size="15"><Lightning /></el-icon>
+          </div>
           <div class="combatant-label">{{ rightFighter.name }}</div>
         </div>
       </div>
@@ -147,13 +159,14 @@
 import { computed, defineComponent, h, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { Loading } from "@element-plus/icons-vue";
+import { Loading, Lightning } from "@element-plus/icons-vue";
 import PetSprite from "../components/PetSprite.vue";
 import { DEFAULT_SPRITE_ACTIONS, isWebpSprite } from "../utils/petRender";
 import { petTournamentApi } from "../api/petTournament";
 import { towerClimbApi } from "../api/towerClimb";
 import { petApi } from "../api/pet";
 import { userApi } from "../api/user";
+import { bossApi } from "../api/boss";
 
 const FightAvatar = defineComponent({
   props: {
@@ -233,8 +246,18 @@ const rightFighter = ref({ name: "对手", level: 1, avatar: "", attack: "--", e
 
 const mode = computed(() => route.query.from || "tournament");
 const isTower = computed(() => mode.value === "tower");
-const backLabel = computed(() => (isTower.value ? "爬塔" : "武道大会"));
-const backPath = computed(() => (isTower.value ? "/points-play/tower" : "/points-play/tournament"));
+const isBoss = computed(() => mode.value === "boss");
+const isTowerOrBoss = computed(() => isTower.value || isBoss.value);
+const backLabel = computed(() => {
+  if (isTower.value) return "爬塔";
+  if (isBoss.value) return "摸鱼BOSS";
+  return "武道大会";
+});
+const backPath = computed(() => {
+  if (isTower.value) return "/points-play/tower";
+  if (isBoss.value) return { path: "/pet-center", query: { tab: "boss" } };
+  return "/points-play/tournament";
+});
 const leftHpPercent = computed(() => hpPercent(leftHp.value, leftMaxHp.value));
 const rightHpPercent = computed(() => hpPercent(rightHp.value, rightMaxHp.value));
 const battleStatusClass = computed(() => {
@@ -260,6 +283,9 @@ const statusText = computed(() => {
 const summaryText = computed(() => {
   if (result.value?.message) return result.value.message;
   if (isTower.value) return battleWon.value ? "通关成功，返回爬塔页面继续挑战更高层。" : "本层挑战未通过，可调整宠物后再战。";
+  if (isBoss.value) {
+    return battleWon.value ? "讨伐成功，返回摸鱼 BOSS 查看排行与奖励。" : "本次讨伐未胜出，可调整宠物与装备后再次挑战。";
+  }
   return battleWon.value ? "排名挑战成功，返回武道大会查看最新排名。" : "挑战未成功，可继续尝试。";
 });
 const infoItems = computed(() => {
@@ -269,6 +295,13 @@ const infoItems = computed(() => {
       { label: "挑战层数", value: data.floor ?? route.query.floor ?? "--" },
       { label: "最高层", value: data.maxFloor ?? "--" },
       { label: "奖励积分", value: data.rewardPoints ?? "--" },
+    ];
+  }
+  if (isBoss.value) {
+    return [
+      { label: "目标 BOSS", value: rightFighter.value.name || "--" },
+      { label: "BOSS ID", value: route.query.bossId ?? "--" },
+      { label: "讨伐奖励(摸鱼币)", value: data.rewardPoints ?? "--" },
     ];
   }
   return [
@@ -329,6 +362,29 @@ async function loadFightInfo() {
       leftHp.value = leftMaxHp.value;
       rightMaxHp.value = monster?.health || 100;
       rightHp.value = rightMaxHp.value;
+    } else if (isBoss.value && route.query.bossId) {
+      const infoRes = await bossApi.getBossBattleInfo({ bossId: route.query.bossId });
+      const d = infoRes.data || {};
+      const pet = d.petInfo || {};
+      const boss = d.bossInfo || {};
+      leftFighter.value = {
+        name: pet.name || "我的宠物",
+        level: pet.level || 1,
+        avatar: pet.avatar || "",
+        attack: pet.attack ?? "--",
+        equippedItems: pet.equippedItems || {},
+      };
+      rightFighter.value = {
+        name: boss.name || "BOSS",
+        level: boss.level ?? boss.id ?? 1,
+        avatar: boss.avatar || "",
+        attack: boss.attack ?? "--",
+        equippedItems: {},
+      };
+      leftMaxHp.value = pet.health || 100;
+      leftHp.value = leftMaxHp.value;
+      rightMaxHp.value = boss.currentHealth ?? boss.maxHealth ?? 100;
+      rightHp.value = rightMaxHp.value;
     } else if (route.query.opponentUserId) {
       const infoRes = await petApi.getPetBattleInfo({ opponentUserId: route.query.opponentUserId });
       const myPet = infoRes.data?.myPet || {};
@@ -365,12 +421,20 @@ async function runChallenge() {
   resetEffects();
   try {
     await loadFightInfo();
-    const res = isTower.value
-      ? await towerClimbApi.challenge()
-      : await petTournamentApi.challenge({ targetRank: route.query.targetRank });
+    let res;
+    if (isTower.value) {
+      res = await towerClimbApi.challenge();
+    } else if (isBoss.value) {
+      res = await bossApi.battle({ bossId: route.query.bossId });
+    } else {
+      res = await petTournamentApi.challenge({ targetRank: route.query.targetRank });
+    }
     if (res.code !== 0) throw new Error(res.message || res.msg || "挑战失败");
-    result.value = res.data || {};
-    fullRounds.value = result.value.battleRounds || result.value.rounds || result.value.battleResultList || result.value.results || [];
+    const rawData = res.data;
+    const payload = Array.isArray(rawData) ? { battleRounds: rawData } : rawData || {};
+    result.value = payload;
+    fullRounds.value =
+      payload.battleRounds || payload.rounds || payload.battleResultList || payload.results || [];
     prepareInitialHp();
     await playRounds();
   } catch (err) {
@@ -504,7 +568,15 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-onMounted(runChallenge);
+onMounted(async () => {
+  if (isBoss.value && !route.query.bossId) {
+    error.value = "缺少 BOSS 参数";
+    ElMessage.error(error.value);
+    router.replace({ path: "/pet-center", query: { tab: "boss" } });
+    return;
+  }
+  await runChallenge();
+});
 </script>
 
 <style scoped>
@@ -825,16 +897,17 @@ onMounted(runChallenge);
 
 .turn-indicator {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 28px;
-  height: 28px;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   color: #fff;
-  background: #ff7a45;
-  box-shadow: 0 0 14px rgba(255, 122, 69, 0.6);
+  background: linear-gradient(145deg, #ffa940 0%, #ff7a45 100%);
+  box-shadow: 0 0 12px rgba(255, 122, 69, 0.45);
+  z-index: 4;
 }
 
 :deep(.fight-avatar) {

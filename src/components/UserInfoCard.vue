@@ -1,69 +1,63 @@
 <template>
-  <div class="user-info-card" :style="{ top: y + 'px', left: x + 'px' }">
-    <button class="close-btn" @click="$emit('close')">×</button>
-    <div class="avatar-section">
-      <img
-        :src="
-          userInfo?.userAvatarURL48 ||
-          userInfo?.userAvatarURL ||
-          userInfo?.userAvatar
-        "
-        class="avatar"
-      />
-      <div class="user-basic">
-        <div class="nickname">
-          {{ userInfo?.userNickname || userInfo?.userName || "未知用户" }}
+  <div class="user-info-card" :style="{ top: `${y}px`, left: `${x}px` }" @click.stop>
+    <button type="button" class="close-btn" aria-label="关闭" @click="$emit('close')">×</button>
+
+    <div v-if="loading" class="card-loading">
+      <el-icon class="spin"><Loading /></el-icon>
+    </div>
+
+    <template v-else-if="userInfo">
+      <div class="avatar-section">
+        <div class="avatar-wrap">
+          <img :src="avatarUrl" class="avatar" alt="avatar" @error="onAvatarError" />
+          <img
+            v-if="userInfo.avatarFramerUrl"
+            :src="userInfo.avatarFramerUrl"
+            class="avatar-frame"
+            alt=""
+          />
         </div>
-        <div class="username">@{{ userInfo?.userName }}</div>
-        <div class="status-row">
-          <span
-            class="status-indicator"
-            :class="{ online: true }"
-          ></span>
-          <span>{{"在线" }}</span>
+        <div class="user-basic">
+          <div class="nickname">{{ displayName }}</div>
+          <div class="username">@{{ userInfo.userName }}</div>
+          <div class="status-row">
+            <span class="status-indicator" :class="{ online: isOnline }"></span>
+            <span>{{ isOnline ? "在线" : "离线" }}</span>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="info-row" v-if="userInfo?.userPoint">
-      <span class="label">积分</span>
-      <span class="value">{{ userInfo.userPoint }}</span>
-    </div>
-    <div class="info-row" v-if="userInfo?.userNo">
-      <span class="label">编号</span>
-      <span class="value"> {{ userInfo.userNo }} 号</span>
-    </div>
-    <div class="info-row" v-if="userInfo?.mbti">
-      <span class="label">MBTI</span>
-      <span class="value">{{ userInfo.mbti }}</span>
-    </div>
-    <div class="info-row" v-if="userInfo?.userCity">
-      <span class="label">城市</span>
-      <span class="value">{{ userInfo.userCity }}</span>
-    </div>
-    <div class="info-row" v-if="userInfo?.userIntro">
-      <span class="label">简介</span>
-      <span class="value">{{ userInfo.userIntro }}</span>
-    </div>
-    <div class="card-actions" v-if="!isCurrentUser">
-      <button
-        class="action-btn detail"
-        @click="$emit('detail', userInfo?.userName)"
-      >
-        查看详情
-      </button>
-      <button
-        class="action-btn mention"
-        @click="$emit('mention', userInfo?.userName || '')"
-      >
-        @TA
-      </button>
-    </div>
+
+      <div v-if="showMeta" class="meta-row">
+        <span class="level-chip">
+          Lv.{{ userInfo.level ?? 0 }}
+        </span>
+        <span v-if="userInfo.points != null || userInfo.userPoint != null" class="points-chip">
+          ✨ {{ userInfo.points ?? userInfo.userPoint ?? 0 }}
+        </span>
+      </div>
+
+      <div v-if="regionText" class="location-row">
+        <span>📍</span>
+        <span>{{ regionText }}</span>
+      </div>
+
+      <div v-if="!isCurrentUser" class="card-actions">
+        <button type="button" class="action-btn detail" @click="handleDetail">查看详情</button>
+        <button type="button" class="action-btn mention" @click="$emit('mention', userInfo.userName || '')">
+          @TA
+        </button>
+      </div>
+    </template>
+
+    <div v-else class="card-empty">加载失败</div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from "vue";
-import { userApi } from "../api";
+import { ref, computed, watch, onMounted } from "vue";
+import { Loading } from "@element-plus/icons-vue";
+import { userApi } from "../api/user";
+
 const props = defineProps({
   userId: { type: [Number, String], default: null },
   userName: { type: String, default: "" },
@@ -71,31 +65,70 @@ const props = defineProps({
   y: { type: Number, default: 0 },
   currentUser: { type: String, default: "" },
 });
-const userInfo = ref(null);
 
-const fetchUserInfo = async () => {
+const emit = defineEmits(["close", "detail", "mention"]);
+
+const userInfo = ref(null);
+const loading = ref(false);
+
+const displayName = computed(
+  () => userInfo.value?.userNickname || userInfo.value?.userName || "未知用户",
+);
+
+const avatarUrl = computed(
+  () =>
+    userInfo.value?.userAvatarURL48 ||
+    userInfo.value?.userAvatarURL ||
+    userInfo.value?.userAvatar ||
+    "/default-avatar.png",
+);
+
+const isOnline = computed(() => userInfo.value?.userOnlineFlag !== false);
+
+const regionText = computed(() => {
+  const u = userInfo.value;
+  if (!u) return "";
+  const region = u.region || u.userCity;
+  if (!region) return "";
+  return u.country ? `${u.country} · ${region}` : region;
+});
+
+const showMeta = computed(
+  () =>
+    userInfo.value?.level != null ||
+    userInfo.value?.points != null ||
+    userInfo.value?.userPoint != null,
+);
+
+const isCurrentUser = computed(() => props.currentUser === props.userName);
+
+function onAvatarError(e) {
+  e.target.src = "/default-avatar.png";
+}
+
+function handleDetail() {
+  emit("detail", userInfo.value);
+}
+
+async function fetchUserInfo() {
+  loading.value = true;
   try {
     if (props.userId !== null && props.userId !== undefined && props.userId !== "") {
-      const rawId =
-        typeof props.userId === "string" ? props.userId.trim() : String(props.userId);
+      const rawId = typeof props.userId === "string" ? props.userId.trim() : String(props.userId);
       if (rawId && /^\d+$/.test(rawId)) {
-        const res = await userApi.getUserVoById(rawId);
-        userInfo.value = res;
+        userInfo.value = await userApi.getUserVoById(rawId);
         return;
       }
     }
     if (!props.userName) return;
-    const res = await userApi.getUserProfile(props.userName);
-    userInfo.value = res;
+    userInfo.value = await userApi.getUserProfile(props.userName);
   } catch (error) {
     console.error("获取用户信息失败:", error);
     userInfo.value = null;
+  } finally {
+    loading.value = false;
   }
-};
-
-const isCurrentUser = computed(() => {
-  return props.currentUser === props.userName;
-});
+}
 
 watch(() => [props.userId, props.userName], fetchUserInfo, { immediate: true });
 onMounted(fetchUserInfo);
@@ -105,160 +138,219 @@ onMounted(fetchUserInfo);
 .user-info-card {
   position: fixed;
   z-index: 3000;
-  min-width: 240px;
-  max-width: 280px;
-  background: var(--card-bg);
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
-  padding: 24px 20px 16px 20px;
-  color: var(--text-color);
-  font-family: inherit;
-  animation: fadeIn 0.18s;
-  border: 1px solid var(--border-color);
+  width: 280px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  padding: 20px 18px 16px;
+  color: #262626;
+  animation: fadeIn 0.2s ease;
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .close-btn {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: var(--card-bg);
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
   border: none;
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  font-size: 20px;
-  color: var(--sub-text-color);
+  background: transparent;
+  font-size: 18px;
+  color: #bfbfbf;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.18s, color 0.18s, box-shadow 0.18s, transform 0.18s,
-    opacity 0.18s;
-  box-shadow: none;
-  opacity: 0.85;
+  transition: color 0.2s, background 0.2s;
 }
+
 .close-btn:hover {
-  background: var(--primary-color);
-  color: var(--button-text);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transform: scale(1.08);
-  opacity: 1;
+  color: #595959;
+  background: #f5f5f5;
 }
-.close-btn:active {
-  opacity: 0.7;
-  transform: scale(0.96);
+
+.card-loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+  color: #ffa940;
 }
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .avatar-section {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding-right: 20px;
 }
+
+.avatar-wrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
 .avatar {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  border: 2px solid var(--avatar-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   object-fit: cover;
+  border: 2px solid #f0f0f0;
 }
+
+.avatar-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 170%;
+  height: 170%;
+  pointer-events: none;
+}
+
 .user-basic {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
+
 .nickname {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-color);
-  max-width: 180px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1c1e;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .username {
   font-size: 13px;
-  color: var(--sub-text-color);
-  max-width: 180px;
+  color: #8c8c8c;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .status-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
+  color: #8c8c8c;
   margin-top: 2px;
 }
+
 .status-indicator {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--border-color);
-  display: inline-block;
+  background: #d9d9d9;
 }
+
 .status-indicator.online {
-  background: var(--signed-color);
+  background: #52c41a;
 }
-.info-row {
+
+.meta-row {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.level-chip {
+  display: inline-flex;
   align-items: center;
-  font-size: 14px;
-  margin-bottom: 8px;
-  padding: 0 2px;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(79, 172, 254, 0.1);
+  color: #4facfe;
+  font-size: 12px;
+  font-weight: 600;
 }
-.label {
-  color: var(--sub-text-color);
-}
-.value {
-  color: var(--text-color);
+
+.points-chip {
+  font-size: 12px;
+  color: #1890ff;
   font-weight: 500;
-  max-width: 180px;
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
+
+.location-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-bottom: 12px;
+}
+
 .card-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 10px;
+  margin-top: 4px;
 }
+
 .action-btn {
-  padding: 8px 18px;
-  border-radius: 20px;
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 999px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   border: none;
   transition: all 0.2s;
 }
+
 .action-btn.detail {
-  background: var(--hover-bg);
-  color: var(--sub-text-color);
+  background: #f5f5f5;
+  color: #595959;
 }
+
 .action-btn.detail:hover {
-  background: var(--card-bg);
+  background: #ebebeb;
 }
+
 .action-btn.mention {
-  background: var(--button-bg);
-  color: var(--button-text);
+  background: linear-gradient(135deg, #ffb84d, #ff9f1a);
+  color: #1a1c1e;
 }
+
 .action-btn.mention:hover {
-  background: var(--primary-color);
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.card-empty {
+  text-align: center;
+  padding: 24px;
+  color: #bfbfbf;
+  font-size: 14px;
 }
 </style>

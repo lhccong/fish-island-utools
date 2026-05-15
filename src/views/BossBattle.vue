@@ -71,23 +71,6 @@
       </div>
     </div>
 
-    <!-- 对战界面弹窗 -->
-    <el-dialog
-      v-model="showBattleScene"
-      :close-on-click-modal="false"
-      :close-on-press-escape="true"
-      :show-close="false"
-      fullscreen
-      class="battle-scene-dialog"
-    >
-      <BossBattleScene
-        v-if="battleInfo"
-        :battle-info="battleInfo"
-        @close="showBattleScene = false"
-        @start-battle="handleStartBattle"
-      />
-    </el-dialog>
-
     <!-- 排行榜弹窗 -->
     <el-dialog
       v-model="showRankingDialog"
@@ -169,16 +152,15 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { bossApi } from "../api/boss";
 import { ElMessage } from "element-plus";
-import BossBattleScene from "../components/BossBattleScene.vue";
 import PetSprite from "../components/PetSprite.vue";
 import { isWebpSprite, DEFAULT_SPRITE_ACTIONS } from "../utils/petRender";
 
+const router = useRouter();
 const loading = ref(false);
 const bossList = ref([]);
-const showBattleScene = ref(false);
-const battleInfo = ref(null);
 const battleLoading = ref(false);
 const showRankingDialog = ref(false);
 const rankingList = ref([]);
@@ -221,8 +203,10 @@ const handleAttack = async (boss) => {
   try {
     const response = await bossApi.getBossBattleInfo({ bossId: boss.id });
     if (response.code === 0 && response.data) {
-      battleInfo.value = response.data;
-      showBattleScene.value = true;
+      router.push({
+        path: "/points-play/pet-fight",
+        query: { from: "boss", bossId: String(boss.id) },
+      });
     } else {
       ElMessage.error(response.message || "获取对战信息失败");
     }
@@ -233,13 +217,6 @@ const handleAttack = async (boss) => {
     battleLoading.value = false;
   }
 };
-
-// 处理开始战斗
-const handleStartBattle = () => {
-  // 战斗逻辑已在 BossBattleScene 组件中实现
-  // 这里可以添加额外的逻辑，比如记录战斗日志等
-};
-
 
 // 处理排行榜
 const handleLeaderboard = async (boss) => {
@@ -501,20 +478,6 @@ onMounted(() => {
   }
 }
 
-/* 对战界面弹窗样式 */
-:deep(.battle-scene-dialog) {
-  .el-dialog {
-    margin: 0;
-    background: transparent;
-  }
-
-  .el-dialog__body {
-    padding: 0;
-    height: 100vh;
-    overflow: hidden;
-  }
-}
-
 /* 排行榜弹窗样式 */
 .ranking-dialog {
   :deep(.el-dialog) {
@@ -672,6 +635,12 @@ onMounted(() => {
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid #ddd;
+}
+
+/* webp 精灵图小图标：不裁剪圆形 */
+.pet-avatar-sprite {
+  display: block;
+  flex-shrink: 0;
 }
 
 .pet-name {

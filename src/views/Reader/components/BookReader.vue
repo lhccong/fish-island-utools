@@ -470,7 +470,7 @@ const loadOnlineChapters = async (book, refresh = false) => {
 
   try {
     const timestamp = new Date().getTime()
-    const accessToken = props.settings.accessToken || 'congg:7e0efee65786976202e4fc20c6a98d89'
+    const accessToken = props.settings.accessToken || 'congg:8e2d5baf23a6db101eabe8376142d653'
     const apiBaseUrl = props.settings.apiBaseUrl || 'https://reader.yucoder.cn/reader3'
     const apiUrl = `${apiBaseUrl}${API_URLS.CHAPTER_LIST}?accessToken=${accessToken}&v=${timestamp}`
 
@@ -514,7 +514,7 @@ const loadOnlineChapterContent = async (book, chapter) => {
 
   try {
     const timestamp = new Date().getTime()
-    const accessToken = props.settings.accessToken || 'congg:7e0efee65786976202e4fc20c6a98d89'
+    const accessToken = props.settings.accessToken || 'congg:8e2d5baf23a6db101eabe8376142d653'
     const apiBaseUrl = props.settings.apiBaseUrl || 'https://reader.yucoder.cn/reader3'
     const apiUrl = `${apiBaseUrl}${API_URLS.BOOK_CONTENT}?accessToken=${accessToken}&v=${timestamp}`
 
@@ -663,7 +663,7 @@ const loadContent = async () => {
         chaptersLength: props.book.chapters.length,
         currentChapterIndex: currentChapterIndex.value
       })
-      
+
       const chapter = props.book.chapters.find(c => c.index === currentChapterIndex.value)
       console.log('[BookReader] loadContent 查找章节结果', {
         found: !!chapter,

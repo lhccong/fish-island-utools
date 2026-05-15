@@ -21,6 +21,7 @@ import FishCircle from "../views/FishCircle.vue";
 import PetTournament from "../views/PetTournament.vue";
 import TowerClimb from "../views/TowerClimb.vue";
 import PetFight from "../views/PetFight.vue";
+import EventRemind from "../views/EventRemind.vue";
 
 const routes = [
   {
@@ -128,6 +129,11 @@ const routes = [
         path: "/notifications",
         name: "Notifications",
         component: Notifications,
+      },
+      {
+        path: "/event-remind",
+        name: "EventRemind",
+        component: EventRemind,
       },
       {
         path: "/private-chat",
