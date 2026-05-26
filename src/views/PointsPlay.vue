@@ -13,7 +13,7 @@
       </div>
     </div>
     <!-- 内容区 -->
-    <div class="points-play-content">
+    <div class="points-play-content" :class="{ 'points-play-content--farm': activeMenu === 'farm' }">
       <router-view />
     </div>
   </div>
@@ -22,13 +22,14 @@
 <script setup>
 import { ref, markRaw, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Aim, TrendCharts, Trophy } from '@element-plus/icons-vue';
+import { Aim, TrendCharts, Trophy, Place } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const route = useRoute();
 
 const tabs = [
   { key: 'stock', label: '摸鱼股市', icon: markRaw(TrendCharts), path: '/points-play/stock-market' },
+  { key: 'farm', label: '摸鱼农场', icon: markRaw(Place), path: '/points-play/farm' },
   { key: 'tournament', label: '武道大会', icon: markRaw(Trophy), path: '/points-play/tournament' },
   { key: 'tower', label: '宠物爬塔', icon: markRaw(Aim), path: '/points-play/tower' },
 ];
@@ -116,5 +117,19 @@ const navigateTo = (menu) => {
   display: none;
   width: 0;
   height: 0;
+}
+
+/* 农场页占满剩余高度，内部自行布局，不出现外层滚动 */
+.points-play-content--farm {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.points-play-content--farm > :deep(.farm-page) {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
 }
 </style>

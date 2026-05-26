@@ -14,5 +14,6 @@ export { petEquipForgeApi } from "./petEquipForge";
 export { redeemCodeApi } from "./redeemCode";
 export { petTournamentApi } from "./petTournament";
 export { towerClimbApi } from "./towerClimb";
+export { farmApi } from "./farm";
 export * as momentsApi from "./moments";
 export { eventRemindApi } from "./eventRemind";

@@ -1,0 +1,196 @@
+.farm-side-dock-wrap {
+  position: absolute;
+  right: clamp(6px, 1vw, 14px);
+  top: clamp(10px, 2vh, 20px);
+  bottom: clamp(10px, 2vh, 20px);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+
+  &.is-expanded {
+    z-index: 50;
+  }
+}
+
+/* 默认：悬浮入口按钮 */
+.farm-dock-fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 2px solid rgba(149, 222, 100, 0.85);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #52a934;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(40, 60, 30, 0.18);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+
+  .el-icon {
+    font-size: 22px;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    background: #f6ffed;
+    box-shadow: 0 6px 18px rgba(40, 60, 30, 0.22);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* 展开：右侧悬浮操作栏 */
+.farm-side-dock {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 72px;
+  max-height: 100%;
+  padding: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 24px rgba(40, 60, 30, 0.16);
+  border: 1px solid rgba(149, 222, 100, 0.65);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.farm-dock-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(250, 250, 250, 0.95);
+  color: #8c8c8c;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+
+  &:hover {
+    background: rgba(139, 195, 74, 0.15);
+    color: #52a934;
+  }
+
+  .el-icon {
+    font-size: 14px;
+  }
+}
+
+.farm-dock-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px 6px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.18);
+  }
+}
+
+.farm-dock-item {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 5px 2px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  color: #5d4037;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+
+  &:hover {
+    background: rgba(139, 195, 74, 0.18);
+    transform: translateY(-1px);
+  }
+
+  &.is-active {
+    background: rgba(255, 247, 230, 0.95);
+    box-shadow: inset 0 0 0 1px rgba(255, 193, 7, 0.35);
+  }
+}
+
+.farm-dock-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #fff9e6 0%, #ffe8b3 100%);
+  color: #d48806;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.farm-dock-label {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.farm-dock-sub {
+  font-size: 10px;
+  color: #8b6914;
+  line-height: 1.1;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farm-dock-panel-enter-active,
+.farm-dock-panel-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.farm-dock-panel-enter-from,
+.farm-dock-panel-leave-to {
+  opacity: 0;
+  transform: translateX(12px);
+}

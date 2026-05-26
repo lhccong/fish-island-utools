@@ -41,9 +41,14 @@
         <span>{{ regionText }}</span>
       </div>
 
-      <div v-if="!isCurrentUser" class="card-actions">
+      <div class="card-actions">
         <button type="button" class="action-btn detail" @click="handleDetail">查看详情</button>
-        <button type="button" class="action-btn mention" @click="$emit('mention', userInfo.userName || '')">
+        <button
+          v-if="!isCurrentUser"
+          type="button"
+          class="action-btn mention"
+          @click="$emit('mention', userInfo.userName || '')"
+        >
           @TA
         </button>
       </div>
