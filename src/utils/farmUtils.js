@@ -41,6 +41,78 @@ export const formatCountdown = (ms) => {
   return `${s}秒`;
 };
 
+/** 好友偷菜冷却剩余文案 */
+export function formatStealCooldown(cooldown, now = Date.now()) {
+  if (cooldown == null || cooldown === "") return "";
+  if (typeof cooldown === "number" && Number.isFinite(cooldown)) {
+    const ms = cooldown > 1e12 ? cooldown - now : cooldown;
+    if (ms <= 0) return "";
+    return formatCountdown(ms);
+  }
+  const end = new Date(cooldown).getTime();
+  if (Number.isNaN(end)) return "";
+  const ms = end - now;
+  if (ms <= 0) return "";
+  return formatCountdown(ms);
+}
+
+function truthyFlag(value) {
+  if (value === true || value === 1 || value === "1" || value === "true") return true;
+  if (value === false || value === 0 || value === "0" || value === "false" || value == null) {
+    return false;
+  }
+  return Boolean(value);
+}
+
+/** 雪花 ID 等长整型：始终以字符串传递 */
+export function toUserIdString(id) {
+  if (id == null || id === "") return undefined;
+  return typeof id === "string" ? id : String(id);
+}
+
+/** 好友列表项上的用户 ID（与 frontend getFriendUserId 一致） */
+export function getFriendUserId(friend) {
+  return toUserIdString(friend?.friendId ?? friend?.systemUserId);
+}
+
+/** 拜访好友农场时地块是否可交互 */
+export function isFriendLandPlot(land) {
+  if (!land) return false;
+  return land.locked !== 1;
+}
+
+/** 偷菜接口所需地块 ID */
+export function resolveStealLandId(land) {
+  if (land?.id == null) return null;
+  const id = Number(land.id);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+/** 好友农场：成熟、有地块 ID 且 canSteal===true */
+export function canStealOnFriendLand(land, currentNow) {
+  return (
+    isFriendLandPlot(land) &&
+    isLandMature(land, currentNow) &&
+    resolveStealLandId(land) != null &&
+    land.canSteal === true
+  );
+}
+
+/** 汇总批量偷菜返回的积分 */
+export function sumStealCoinGained(records) {
+  return (records ?? []).reduce((sum, record) => sum + (record.coinGained ?? 0), 0);
+}
+
+export function unwrapFarmFriendList(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    if (Array.isArray(payload.records)) return payload.records;
+    if (Array.isArray(payload.list)) return payload.list;
+    if (Array.isArray(payload.items)) return payload.items;
+  }
+  return [];
+}
+
 export const buildLandGrid = (lands) => {
   const grid = Array(TOTAL_LANDS).fill(null);
   const landByIndex = new Map();
@@ -94,6 +166,7 @@ export const isLandEmpty = (land) => {
 };
 
 export const isLandMature = (land, currentNow) => {
+  if (!land) return false;
   if (land.status === LAND_STATUS.MATURE) return true;
   if (land.status !== LAND_STATUS.GROWING || !land.harvestTime) return false;
   return new Date(land.harvestTime).getTime() <= currentNow;
@@ -110,42 +183,77 @@ export const isCropIconUrl = (icon) => {
   );
 };
 
-/** 拜访接口 friendUserId：优先真实用户 ID，friendId 多为关系序号 */
+/** 拜访接口 friendUserId（字符串，避免雪花 ID 精度丢失） */
 export function resolveFriendUserId(friend) {
-  const raw =
-    friend?.friendUserId ??
-    friend?.userId ??
-    friend?.systemUserId ??
-    friend?.id ??
-    friend?.friendId;
-  if (raw == null || raw === "") return null;
-  if (typeof raw === "string") {
-    const trimmed = raw.trim();
-    return /^\d+$/.test(trimmed) ? trimmed : null;
-  }
-  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
-  return null;
+  const id = getFriendUserId(friend);
+  return id ?? null;
 }
 
 export const resolveFarmFriendId = resolveFriendUserId;
 
 export function normalizeFarmFriend(raw) {
-  const friendUserId = resolveFriendUserId(raw);
+  if (!raw || typeof raw !== "object") {
+    return {
+      nickname: "好友",
+      level: 1,
+      canSteal: false,
+      stealCooldown: undefined,
+    };
+  }
+
+  const friendId = raw.friendId ?? raw.friend_id;
+  const systemUserId = raw.systemUserId ?? raw.system_user_id;
+
+  const stealCooldown =
+    raw.stealCooldown ??
+    raw.stealCoolDown ??
+    raw.steal_cooldown ??
+    raw.cooldownEndTime ??
+    raw.nextStealTime ??
+    raw.stealCooldownEnd;
+
   return {
-    friendUserId: friendUserId ?? undefined,
-    userId: friendUserId ?? undefined,
-    systemUserId: friendUserId ?? undefined,
-    nickname: String(raw.nickname ?? raw.userName ?? raw.nickName ?? "好友"),
-    avatar: raw.avatar ?? raw.userAvatar,
-    level: Number(raw.level) || 1,
-    canSteal: Boolean(raw.canSteal),
-    stealCooldown: raw.stealCooldown,
+    friendId,
+    systemUserId,
+    nickname: String(
+      raw.nickname ?? raw.userName ?? raw.nickName ?? raw.friendName ?? "好友",
+    ),
+    avatar: raw.avatar ?? raw.userAvatar ?? raw.friendAvatar,
+    level: Number(raw.level ?? raw.farmLevel ?? raw.userLevel) || 1,
+    canSteal: raw.canSteal === true,
+    stealCooldown,
+  };
+}
+
+function unwrapLandRaw(raw) {
+  if (!raw || typeof raw !== "object") return raw;
+  return raw.landDTO ?? raw.landDto ?? raw.land ?? raw;
+}
+
+function toPositiveId(value) {
+  if (value == null || value === "") return null;
+  const id = Number(value);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+export function normalizeLand(raw) {
+  const source = unwrapLandRaw(raw);
+  if (!source || typeof source !== "object") return source;
+  return {
+    ...source,
+    cropName: source.cropName ?? source.crop_name,
+    harvestTime: source.harvestTime ?? source.harvest_time,
+    plantedTime: source.plantedTime ?? source.planted_time,
+    plantedCropId: source.plantedCropId ?? source.planted_crop_id,
+    landIndex: source.landIndex ?? source.land_index,
   };
 }
 
 export function parseFriendLandsPayload(data) {
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.lands)) return data.lands;
+  if (Array.isArray(data)) return data.map((land) => normalizeLand(land));
+  if (data && typeof data === "object" && Array.isArray(data.lands)) {
+    return data.lands.map((land) => normalizeLand(land));
+  }
   return [];
 }
 

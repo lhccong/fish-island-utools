@@ -1,11 +1,22 @@
 <template>
-  <div class="farm-page farm-page--embedded">
+  <div
+    class="farm-page farm-page--embedded"
+    :class="{ 'farm-page--visiting-friend': viewingFriend }"
+  >
     <div class="farm-header-bar">
       <div class="farm-header-left">
         <el-icon class="farm-header-icon"><Place /></el-icon>
         <div>
-          <h4 class="farm-header-title">摸鱼农场</h4>
-          <p class="farm-header-sub">种下希望，收获积分</p>
+          <h4 class="farm-header-title">
+            {{ viewingFriend ? `${visitingFriendName}的农场` : "摸鱼农场" }}
+          </h4>
+          <p class="farm-header-sub">
+            {{
+              viewingFriend
+                ? "成熟且可偷的地块点击即可偷菜"
+                : "种下希望，收获积分"
+            }}
+          </p>
         </div>
       </div>
       <div class="farm-header-right">
@@ -27,6 +38,24 @@
         </div>
         <div class="farm-header-actions">
           <el-button
+            v-if="!viewingFriend && matureLands.length > 0"
+            type="success"
+            class="harvest-all-btn"
+            :loading="actionLoading"
+            @click="handleHarvestAll"
+          >
+            一键摘取 ({{ matureLands.length }})
+          </el-button>
+          <el-button
+            v-if="viewingFriend && stealableLands.length > 0"
+            type="warning"
+            class="steal-all-btn"
+            :loading="actionLoading"
+            @click="handleStealAll"
+          >
+            一键偷菜 ({{ stealableLands.length }})
+          </el-button>
+          <el-button
             v-if="!viewingFriend && emptyLands.length > 0"
             type="primary"
             class="plant-all-btn"
@@ -41,17 +70,12 @@
             class="farm-header-refresh-btn"
             aria-label="刷新"
             :disabled="loading"
-            @click="loadFarmData"
+            @click="handleRefresh"
           >
             <el-icon :class="{ 'is-loading': loading }"><Refresh /></el-icon>
           </button>
         </div>
       </div>
-    </div>
-
-    <div v-if="viewingFriend" class="farm-friend-visit-bar">
-      <span>正在拜访 {{ viewingFriend.friendName || "好友" }} 的农场</span>
-      <el-button size="small" type="warning" plain @click="exitFriendFarm">返回我的农场</el-button>
     </div>
 
     <div v-loading="loading" class="farm-content farm-spin-wrap">
@@ -86,6 +110,20 @@
                 </span>
               </button>
             </el-tooltip>
+            <el-tooltip v-if="viewingFriend" content="返回我的农场">
+              <button
+                type="button"
+                class="farm-deco farm-deco-back"
+                aria-label="返回我的农场"
+                :disabled="actionLoading"
+                @click="exitFriendFarm"
+              >
+                <span class="farm-deco-back-icon">
+                  <el-icon><ArrowLeft /></el-icon>
+                </span>
+                <span class="farm-deco-back-label">返回</span>
+              </button>
+            </el-tooltip>
           </aside>
 
           <div class="farm-land-field">
@@ -110,45 +148,82 @@
                             <button
                               type="button"
                               :class="getPlotClassName(landGrid[arrayIndex], arrayIndex)"
-                              :disabled="!isLandUnlocked(landGrid[arrayIndex]) || actionLoading"
+                              :disabled="
+                                (isFriendFarm
+                                  ? !isFriendLandPlot(landGrid[arrayIndex])
+                                  : !isLandUnlocked(landGrid[arrayIndex])) || actionLoading
+                              "
                               @click="handlePlotClick(landGrid[arrayIndex], arrayIndex)"
                             >
-                              <span class="plot-soil" aria-hidden>
-                                <span class="plot-tile-surface" />
-                                <span class="plot-mound" />
+                              <span class="plot-land-body">
+                                <span class="plot-soil" aria-hidden>
+                                  <span class="plot-tile-surface" />
+                                </span>
+                                <div
+                                  v-if="
+                                    isFriendFarm
+                                      ? !isFriendLandPlot(landGrid[arrayIndex])
+                                      : !isLandUnlocked(landGrid[arrayIndex])
+                                  "
+                                  class="plot-overlay plot-overlay-locked"
+                                >
+                                  <el-icon class="plot-lock-icon"><Lock /></el-icon>
+                                  <span class="plot-lock-text">未解锁</span>
+                                </div>
+                                <div
+                                  v-else-if="isLandMature(landGrid[arrayIndex], now)"
+                                  class="plot-overlay plot-overlay-mature"
+                                >
+                                  <CropIcon
+                                    :crop="getCrop(landGrid[arrayIndex])"
+                                    crop-class="plot-crop-icon mature"
+                                  />
+                                  <span v-if="!isFriendFarm" class="plot-sparkle" aria-hidden />
+                                </div>
+                                <div
+                                  v-else-if="
+                                    landGrid[arrayIndex]?.status === LAND_STATUS.GROWING
+                                  "
+                                  class="plot-overlay plot-overlay-growing"
+                                >
+                                  <CropIcon
+                                    :crop="getCrop(landGrid[arrayIndex])"
+                                    crop-class="plot-crop-icon growing"
+                                  />
+                                </div>
                               </span>
-                              <div
-                                v-if="!isLandUnlocked(landGrid[arrayIndex])"
-                                class="plot-overlay plot-overlay-locked"
+                              <span
+                                v-if="
+                                  landGrid[arrayIndex] &&
+                                  isLandMature(landGrid[arrayIndex], now)
+                                "
+                                class="plot-harvest-hint plot-harvest-hint--below"
+                                :class="{
+                                  'plot-steal-hint':
+                                    isFriendFarm &&
+                                    canStealOnFriendLand(landGrid[arrayIndex], now),
+                                }"
+                              >{{
+                                isFriendFarm
+                                  ? canStealOnFriendLand(landGrid[arrayIndex], now)
+                                    ? "偷菜"
+                                    : "已成熟"
+                                  : "收获"
+                              }}</span>
+                              <span
+                                v-else-if="
+                                  landGrid[arrayIndex] &&
+                                  landGrid[arrayIndex].status === LAND_STATUS.GROWING
+                                "
+                                class="plot-timer plot-timer--below"
                               >
-                                <el-icon class="plot-lock-icon"><Lock /></el-icon>
-                                <span class="plot-lock-text">未解锁</span>
-                              </div>
-                              <div
-                                v-else-if="isLandMature(landGrid[arrayIndex], now)"
-                                class="plot-overlay"
-                              >
-                                <CropIcon
-                                  :crop="getCrop(landGrid[arrayIndex])"
-                                  crop-class="plot-crop-icon mature"
-                                />
-                                <span class="plot-harvest-hint">{{
-                                  isFriendFarm && landGrid[arrayIndex]?.canSteal ? "偷菜" : "收获"
-                                }}</span>
-                                <span v-if="!isFriendFarm" class="plot-sparkle" aria-hidden />
-                              </div>
-                              <div
-                                v-else-if="landGrid[arrayIndex]?.status === LAND_STATUS.GROWING"
-                                class="plot-overlay"
-                              >
-                                <CropIcon
-                                  :crop="getCrop(landGrid[arrayIndex])"
-                                  crop-class="plot-crop-icon growing"
-                                />
-                                <span class="plot-timer">{{
-                                  formatCountdown(getLandRemainingMs(landGrid[arrayIndex]))
-                                }}</span>
-                              </div>
+                                <el-icon class="plot-timer-icon"><Clock /></el-icon>
+                                {{
+                                  formatCountdown(
+                                    getLandRemainingMs(landGrid[arrayIndex]),
+                                  )
+                                }}
+                              </span>
                             </button>
                           </el-tooltip>
                         </div>
@@ -172,6 +247,23 @@
                       <img :src="FARM_HARVEST_ICON" alt="" draggable="false" />
                     </span>
                     <span class="farm-quick-harvest-label">一键摘取</span>
+                  </button>
+                </el-tooltip>
+              </div>
+              <div v-if="viewingFriend && stealableLands.length > 0" class="farm-harvest-dock">
+                <el-tooltip :content="`偷取 ${stealableLands.length} 块成熟作物`">
+                  <button
+                    type="button"
+                    class="farm-quick-harvest is-ready farm-quick-steal"
+                    :class="{ 'is-loading': actionLoading }"
+                    :disabled="actionLoading"
+                    aria-label="一键偷菜"
+                    @click="handleStealAll"
+                  >
+                    <span class="farm-quick-harvest-icon">
+                      <img :src="FARM_HARVEST_ICON" alt="" draggable="false" />
+                    </span>
+                    <span class="farm-quick-harvest-label">一键偷菜</span>
                   </button>
                 </el-tooltip>
               </div>
@@ -203,6 +295,7 @@
       :my-avatar="farmUser?.userAvatar ?? userStore.userAvatarURL"
       @close="closeFriendsModal"
       @refresh-stolen="loadStolenRecords"
+      :visit-loading-id="visitLoadingId"
       @visit-friend="handleVisitFriend"
     />
 
@@ -298,6 +391,8 @@ import {
   Refresh,
   Message,
   Lock,
+  ArrowLeft,
+  Clock,
 } from "@element-plus/icons-vue";
 import { farmApi } from "../api/farm";
 import { useUserStore } from "../stores/user";
@@ -319,7 +414,12 @@ import {
   isLandMature,
   isCropIconUrl,
   resolveFriendUserId,
+  getFriendUserId,
   parseFriendLandsPayload,
+  resolveStealLandId,
+  canStealOnFriendLand,
+  isFriendLandPlot,
+  sumStealCoinGained,
 } from "../utils/farmUtils";
 import "../styles/farm/index.less";
 import "../styles/farm/utools-overrides.less";
@@ -362,10 +462,18 @@ const plantAnchorLandId = ref(null);
 const selectedCropId = ref(null);
 const activeCategory = ref("all");
 const viewingFriend = ref(null);
+const visitingFriendUserId = ref(null);
+const visitLoadingId = ref(null);
 
 let nowTimer = null;
 
 const isFriendFarm = computed(() => viewingFriend.value != null);
+
+const visitingFriendName = computed(() => {
+  const friend = viewingFriend.value;
+  if (!friend) return "好友";
+  return friend.nickname || friend.friendName || "好友";
+});
 
 const availablePoints = computed(() => {
   const u = userStore.userInfo;
@@ -385,6 +493,12 @@ const cropMap = computed(() => {
 
 const matureLands = computed(() =>
   lands.value.filter((l) => isLandMature(l, now.value) && l.id != null && isLandUnlocked(l)),
+);
+
+const stealableLands = computed(() =>
+  isFriendFarm.value
+    ? lands.value.filter((l) => canStealOnFriendLand(l, now.value))
+    : [],
 );
 
 const nearestGrowingMs = computed(() => {
@@ -460,7 +574,10 @@ function getPlotTooltip(land, arrayIndex) {
   if (isFriendFarm.value) {
     if (!isLandUnlocked(land)) return "未解锁地块";
     if (isLandMature(land, now.value)) {
-      return land.canSteal ? `点击偷取 ${land.cropName || ""}` : "暂不可偷";
+      if (canStealOnFriendLand(land, now.value)) {
+        return `点击偷取 ${land.cropName || "作物"}`;
+      }
+      return `${land.cropName || "作物"}已成熟，暂不可偷`;
     }
     if (land.status === LAND_STATUS.GROWING) {
       return `${land.cropName || "作物"} · ${formatCountdown(getLandRemainingMs(land))}`;
@@ -485,15 +602,24 @@ function getPlotTooltip(land, arrayIndex) {
 
 function getPlotClassName(land, arrayIndex) {
   const classes = ["farm-plot"];
-  const unlocked = isLandUnlocked(land);
+  const unlocked = isFriendFarm.value ? isFriendLandPlot(land) : isLandUnlocked(land);
   if (!unlocked) {
     classes.push("is-locked");
-    if (arrayIndex === unlockedCount.value) classes.push("is-next-unlock");
+    if (!isFriendFarm.value && arrayIndex === unlockedCount.value) {
+      classes.push("is-next-unlock");
+    }
     return classes.join(" ");
   }
-  if (isLandMature(land, now.value)) classes.push("is-mature");
-  else if (land.status === LAND_STATUS.GROWING) classes.push("is-growing");
-  else classes.push("is-empty");
+  if (isLandMature(land, now.value)) {
+    classes.push("is-mature");
+    if (isFriendFarm.value && canStealOnFriendLand(land, now.value)) {
+      classes.push("can-steal");
+    }
+  } else if (land?.status === LAND_STATUS.GROWING) {
+    classes.push("is-growing");
+  } else {
+    classes.push("is-empty");
+  }
   return classes.join(" ");
 }
 
@@ -570,28 +696,76 @@ function closeFriendsModal() {
   friendsInitialTab.value = "play";
 }
 
-async function handleVisitFriend(friend) {
-  const friendUserId = resolveFriendUserId(friend);
-  if (friendUserId == null) {
-    ElMessage.error("好友信息无效");
+async function loadFriendLands(friendUserId) {
+  const data = await farmApi.loadFriendLands(friendUserId);
+  lands.value = parseFriendLandsPayload(data);
+  return true;
+}
+
+async function refreshFriendFarm() {
+  const friendUserId = visitingFriendUserId.value;
+  if (friendUserId == null) return;
+  loading.value = true;
+  try {
+    await loadFriendLands(friendUserId);
+  } catch (e) {
+    ElMessage.error(e?.message || "刷新好友农场失败");
+    console.error(e);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function handleRefresh() {
+  if (viewingFriend.value && visitingFriendUserId.value != null) {
+    refreshFriendFarm();
     return;
   }
-  closeFriendsModal();
+  loadFarmData();
+}
+
+async function visitFarmByUserId(friendUserId, meta, friend) {
+  visitLoadingId.value = friendUserId;
+  visitingFriendUserId.value = friendUserId;
+  try {
+    const ok = await loadFriendLands(friendUserId);
+    if (ok) {
+      viewingFriend.value =
+        friend ??
+        {
+          nickname: meta?.nickname,
+          avatar: meta?.avatar,
+        };
+      ElMessage.success(`正在拜访 ${meta?.nickname || "好友"} 的农场`);
+    } else {
+      visitingFriendUserId.value = null;
+    }
+    return ok;
+  } finally {
+    visitLoadingId.value = null;
+  }
+}
+
+async function handleVisitFriend(friend) {
+  const friendUserId = getFriendUserId(friend);
+  if (friendUserId == null) {
+    ElMessage.warning("好友信息异常");
+    return;
+  }
   actionLoading.value = true;
   try {
-    const res = await farmApi.getFriendLands(friendUserId);
-    if (res?.code === 0 && res.data != null) {
-      viewingFriend.value = {
-        friendUserId,
-        friendName: friend.nickname ?? "好友",
-        friendAvatar: friend.avatar,
-      };
-      lands.value = parseFriendLandsPayload(res.data);
-      return;
+    const ok = await visitFarmByUserId(
+      friendUserId,
+      { nickname: friend.nickname, avatar: friend.avatar },
+      friend,
+    );
+    if (ok) {
+      closeFriendsModal();
+    } else {
+      ElMessage.error("拜访失败");
     }
-    ElMessage.error(res?.msg || res?.message || "拜访失败");
   } catch (e) {
-    ElMessage.error("拜访失败");
+    ElMessage.error(e?.message || "拜访失败");
     console.error(e);
   } finally {
     actionLoading.value = false;
@@ -600,6 +774,7 @@ async function handleVisitFriend(friend) {
 
 async function exitFriendFarm() {
   viewingFriend.value = null;
+  visitingFriendUserId.value = null;
   actionLoading.value = true;
   try {
     await refreshLandsAndFarmUser();
@@ -609,26 +784,67 @@ async function exitFriendFarm() {
 }
 
 async function handleSteal(land) {
-  if (!land?.plantRecordId) {
-    ElMessage.warning("无法偷取这块地");
+  if (!viewingFriend.value) return;
+  const landId = resolveStealLandId(land);
+  if (landId == null) {
+    ElMessage.warning("该地块暂不可偷");
     return;
   }
+
   actionLoading.value = true;
   try {
-    const res = await farmApi.steal(land.plantRecordId);
+    const res = await farmApi.steal({ landId });
     if (res?.code === 0) {
-      ElMessage.success("偷菜成功");
-      const friendUserId = resolveFriendUserId(viewingFriend.value ?? {});
-      if (friendUserId != null) {
-        const landsRes = await farmApi.getFriendLands(friendUserId);
-        if (landsRes?.code === 0 && landsRes.data != null) {
-          lands.value = parseFriendLandsPayload(landsRes.data);
-        }
+      const coin = sumStealCoinGained(res.data);
+      ElMessage.success(coin > 0 ? `偷菜成功，获得 ${coin} 积分～` : "偷菜成功～");
+      if (visitingFriendUserId.value) {
+        await loadFriendLands(visitingFriendUserId.value);
       }
+      await loadStolenRecords();
       await refreshCurrentUser();
-      return;
+    } else {
+      ElMessage.error(res?.msg || res?.message || "偷菜失败");
     }
-    ElMessage.error(res?.msg || res?.message || "偷菜失败");
+  } catch (e) {
+    ElMessage.error("偷菜失败");
+    console.error(e);
+  } finally {
+    actionLoading.value = false;
+  }
+}
+
+async function handleStealAll() {
+  if (!viewingFriend.value || stealableLands.value.length === 0) {
+    ElMessage.info("暂无可偷的成熟作物");
+    return;
+  }
+  const landIds = stealableLands.value
+    .map((land) => resolveStealLandId(land))
+    .filter((id) => id != null);
+  if (landIds.length === 0) {
+    ElMessage.info("暂无可偷的成熟作物");
+    return;
+  }
+
+  actionLoading.value = true;
+  try {
+    const res = await farmApi.steal({ landIds });
+    if (res?.code === 0 && (res.data?.length ?? 0) > 0) {
+      const count = res.data.length;
+      const coin = sumStealCoinGained(res.data);
+      ElMessage.success(
+        coin > 0
+          ? `成功偷取 ${count} 块地，获得 ${coin} 积分～`
+          : `成功偷取 ${count} 块地的作物～`,
+      );
+      if (visitingFriendUserId.value) {
+        await loadFriendLands(visitingFriendUserId.value);
+      }
+      await loadStolenRecords();
+      await refreshCurrentUser();
+    } else {
+      ElMessage.error(res?.msg || res?.message || "偷菜失败");
+    }
   } catch (e) {
     ElMessage.error("偷菜失败");
     console.error(e);
@@ -643,6 +859,14 @@ function openStolenModal() {
 }
 
 function handleDockMature() {
+  if (isFriendFarm.value) {
+    if (stealableLands.value.length > 0) {
+      handleStealAll();
+      return;
+    }
+    ElMessage.info("暂无可偷的成熟作物");
+    return;
+  }
   if (matureLands.value.length > 0) {
     handleHarvestAll();
     return;
@@ -684,20 +908,22 @@ function openPlantModal(landIds, anchorLandId) {
 
 function handlePlotClick(land, arrayIndex) {
   if (isFriendFarm.value) {
-    if (!isLandUnlocked(land)) return;
+    if (!isFriendLandPlot(land)) return;
     if (isLandMature(land, now.value)) {
-      if (land.canSteal) {
-        handleSteal(land);
-      } else {
-        ElMessage.info("这块菜暂时不能偷");
+      if (resolveStealLandId(land) == null) {
+        ElMessage.warning("地块信息异常，请刷新好友农场后重试");
+        return;
       }
+      handleSteal(land);
       return;
     }
     if (land.status === LAND_STATUS.GROWING) {
       ElMessage.info(
-        `${land.cropName || "作物"}生长中，剩余 ${formatCountdown(getLandRemainingMs(land))}`,
+        `${land.cropName || "作物"}还在生长，${formatCountdown(getLandRemainingMs(land))} 后成熟`,
       );
+      return;
     }
+    ElMessage.info("好友的地块是空的");
     return;
   }
 

@@ -23,11 +23,19 @@ export const sellIndex = (data) => {
 };
 
 /**
- * 获取用户持仓信息
+ * 获取用户持仓信息（单指数，兼容旧接口）
  * @returns {Promise}
  */
 export const getPosition = () => {
   return request.get("/api/index/trade/position");
+};
+
+/**
+ * 获取用户全部指数持仓
+ * @returns {Promise}
+ */
+export const getPositions = () => {
+  return request.get("/api/index/trade/positions");
 };
 
 /**
@@ -53,6 +61,7 @@ export const stockApi = {
   buyIndex,
   sellIndex,
   getPosition,
+  getPositions,
   getTransactions,
   getMajorIndices,
 };

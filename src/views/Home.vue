@@ -315,11 +315,31 @@ const handleChatroomFullscreenChanged = (event) => {
   isChatroomFullscreen.value = event?.detail?.enabled === true;
 };
 
+function syncNotificationPolling() {
+  if (route.path === "/farm") {
+    notificationStore.stopChecking();
+    return;
+  }
+  if (userStore.isLoggedIn) {
+    notificationStore.fetchUnreadCount(true);
+    notificationStore.startChecking();
+  }
+}
+
+watch(
+  () => route.path,
+  () => {
+    syncNotificationPolling();
+  },
+);
+
 onMounted(async () => {
   console.log("Home 组件挂载...");
   await userStore.init();
   loadChatroomFullscreenSetting();
-  await notificationStore.init();
+  if (route.path !== "/farm") {
+    await notificationStore.init();
+  }
   await eventRemindStore.init();
   await livenessStore.init();
 
@@ -778,7 +798,9 @@ const goToLogin = () => {
 }
 
 .content-area {
-  flex-grow: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .content-area.chatroom-fullscreen-area {

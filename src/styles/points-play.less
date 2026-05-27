@@ -1,0 +1,199 @@
+// 积分玩法 — 顶栏 Tab
+@pp-track-bg: #eceef2;
+@pp-track-border: #d4d9e0;
+@pp-text: #5c6570;
+@pp-text-active: #1f2329;
+
+.points-play {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: 16px 20px 20px;
+  border-radius: 8px;
+  background: var(--background-color, #fff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+}
+
+.points-play-tabs {
+  flex-shrink: 0;
+  margin-bottom: 14px;
+}
+
+.points-play-tabs__track {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  gap: 4px;
+  padding: 4px;
+  background: @pp-track-bg;
+  border: 1px solid @pp-track-border;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.tab-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  color: @pp-text;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover:not(.active) {
+    color: @pp-text-active;
+    background: rgba(255, 255, 255, 0.55);
+  }
+
+  &.active {
+    color: @pp-text-active;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+  }
+}
+
+.tab-item__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  font-size: 15px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tab-item__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// 各玩法激活色
+.tab-item--stock {
+  &.active {
+    color: #cf1322;
+
+    .tab-item__icon {
+      color: #cf1322;
+      background: #fff1f0;
+    }
+  }
+
+  &:hover:not(.active) .tab-item__icon {
+    color: #cf1322;
+  }
+}
+
+.tab-item--farm {
+  &.active {
+    color: #389e0d;
+
+    .tab-item__icon {
+      color: #389e0d;
+      background: #f6ffed;
+    }
+  }
+
+  &:hover:not(.active) .tab-item__icon {
+    color: #52c41a;
+  }
+}
+
+.tab-item--tournament {
+  &.active {
+    color: #d48806;
+
+    .tab-item__icon {
+      color: #d48806;
+      background: #fffbe6;
+    }
+  }
+
+  &:hover:not(.active) .tab-item__icon {
+    color: #faad14;
+  }
+}
+
+.tab-item--tower {
+  &.active {
+    color: #531dab;
+
+    .tab-item__icon {
+      color: #531dab;
+      background: #f9f0ff;
+    }
+  }
+
+  &:hover:not(.active) .tab-item__icon {
+    color: #722ed1;
+  }
+}
+
+.points-play-content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+.points-play-content--farm {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.points-play-content--stock {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  .tab-item__label {
+    display: none;
+  }
+
+  .tab-item {
+    padding: 10px 8px;
+  }
+
+  .tab-item__icon {
+    width: 28px;
+    height: 28px;
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 900px) {
+  .tab-item__label {
+    font-size: 12px;
+  }
+}

@@ -103,7 +103,7 @@
           <ul v-else class="farm-friends-list">
             <li
               v-for="(friend, index) in filteredFriends"
-              :key="friend.friendUserId ?? friend.userId ?? friend.systemUserId ?? index"
+              :key="getFriendUserId(friend) || index"
               class="farm-friend-item"
             >
               <span class="farm-friend-rank">{{ index + 1 }}</span>
@@ -117,27 +117,33 @@
                 <div class="farm-friend-meta">
                   <span class="farm-friend-level-tag">Lv.{{ friend.level ?? 1 }}</span>
                   <span
-                    v-if="friend.canSteal"
+                    v-if="friend.canSteal === true && !stealCooldownLabel(friend)"
                     class="farm-friend-status can-steal"
                     title="可偷菜"
                   >
-                    🥬
+                    🥬 可偷
                   </span>
                   <span
-                    v-else-if="friend.stealCooldown"
+                    v-else-if="stealCooldownLabel(friend)"
                     class="farm-friend-status cooldown"
                   >
-                    {{ friend.stealCooldown }}
+                    冷却 {{ stealCooldownLabel(friend) }}
+                  </span>
+                  <span
+                    v-else-if="friend.canSteal !== true"
+                    class="farm-friend-status cooldown"
+                  >
+                    不可偷
                   </span>
                 </div>
               </div>
               <button
                 type="button"
                 class="farm-friend-visit-btn"
-                :disabled="visitingId === resolveFriendUserId(friend)"
+                :disabled="visitLoadingId === getFriendUserId(friend)"
                 @click="handleVisit(friend)"
               >
-                {{ visitingId === resolveFriendUserId(friend) ? "拜访中" : "拜访" }}
+                {{ visitLoadingId === getFriendUserId(friend) ? "拜访中" : "拜访" }}
               </button>
             </li>
           </ul>
@@ -172,8 +178,10 @@ import { Close, Message, Plus, ArrowDown, Search } from "@element-plus/icons-vue
 import { farmApi } from "../../api/farm";
 import {
   formatStolenTime,
+  formatStealCooldown,
   normalizeFarmFriend,
-  resolveFriendUserId,
+  getFriendUserId,
+  unwrapFarmFriendList,
 } from "../../utils/farmUtils";
 import "../../styles/farm/friends-modal.less";
 
@@ -185,6 +193,7 @@ const props = defineProps({
   initialTab: { type: String, default: "play" },
   stolenRecords: { type: Array, default: () => [] },
   stolenLoading: { type: Boolean, default: false },
+  visitLoadingId: { type: String, default: null },
 });
 
 const emit = defineEmits(["close", "refresh-stolen", "visit-friend"]);
@@ -208,7 +217,6 @@ const stealerAvatar = "https://api.dicebear.com/7.x/avataaars/svg?seed=farm-stea
 const activeTab = ref(props.initialTab);
 const friends = ref([]);
 const friendsLoading = ref(false);
-const visitingId = ref(null);
 const searchKeyword = ref("");
 const sortKey = ref("default");
 const sortMenuOpen = ref(false);
@@ -218,6 +226,10 @@ const stolenCount = computed(() => props.stolenRecords.length);
 const sortLabel = computed(
   () => sortOptions.find((o) => o.key === sortKey.value)?.label ?? "默认排序",
 );
+
+function stealCooldownLabel(friend) {
+  return formatStealCooldown(friend?.stealCooldown);
+}
 
 const filteredFriends = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase();
@@ -237,10 +249,9 @@ async function loadFriends() {
   friendsLoading.value = true;
   try {
     const res = await farmApi.getFriendList();
+    const list = unwrapFarmFriendList(res?.data);
     friends.value =
-      res?.code === 0 && Array.isArray(res.data)
-        ? res.data.map((item) => normalizeFarmFriend(item))
-        : [];
+      res?.code === 0 ? list.map((item) => normalizeFarmFriend(item)) : [];
   } catch (e) {
     friends.value = [];
     console.error(e);
@@ -262,15 +273,11 @@ function setSort(key) {
 }
 
 function handleVisit(friend) {
-  const friendUserId = resolveFriendUserId(friend);
-  if (friendUserId == null) {
-    ElMessage.error("好友信息无效");
+  if (getFriendUserId(friend) == null) {
+    ElMessage.warning("好友信息异常");
     return;
   }
-  visitingId.value = friendUserId;
-  emit("close");
-  emit("visit-friend", { ...friend, friendUserId });
-  visitingId.value = null;
+  emit("visit-friend", friend);
 }
 
 function handleDocumentClick() {

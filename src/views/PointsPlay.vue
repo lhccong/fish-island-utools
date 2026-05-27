@@ -1,19 +1,31 @@
 <template>
   <div class="points-play">
     <!-- 顶部横向子菜单 -->
-    <div class="points-play-tabs">
-      <div
-        v-for="tab in tabs"
-        :key="tab.key"
-        :class="['tab-item', { active: activeMenu === tab.key }]"
-        @click="navigateTo(tab.key)"
-      >
-        <el-icon><component :is="tab.icon" /></el-icon>
-        <span>{{ tab.label }}</span>
+    <nav class="points-play-tabs" aria-label="积分玩法">
+      <div class="points-play-tabs__track">
+        <div
+          v-for="tab in tabs"
+          :key="tab.key"
+          :class="['tab-item', `tab-item--${tab.key}`, { active: activeMenu === tab.key }]"
+          role="tab"
+          :aria-selected="activeMenu === tab.key"
+          @click="navigateTo(tab.key)"
+        >
+          <span class="tab-item__icon">
+            <el-icon><component :is="tab.icon" /></el-icon>
+          </span>
+          <span class="tab-item__label">{{ tab.label }}</span>
+        </div>
       </div>
-    </div>
+    </nav>
     <!-- 内容区 -->
-    <div class="points-play-content" :class="{ 'points-play-content--farm': activeMenu === 'farm' }">
+    <div
+      class="points-play-content"
+      :class="{
+        'points-play-content--farm': activeMenu === 'farm',
+        'points-play-content--stock': activeMenu === 'stock',
+      }"
+    >
       <router-view />
     </div>
   </div>
@@ -52,84 +64,21 @@ const navigateTo = (menu) => {
 };
 </script>
 
-<style scoped>
-.points-play {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 16px 20px 20px;
-  border-radius: 8px;
-  background: var(--background-color, #fff);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* 横向标签栏 */
-.points-play-tabs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color, #e8e8e8);
-}
-
-.tab-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--text-color-secondary, #666);
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  user-select: none;
-  background: transparent;
-}
-
-.tab-item:hover {
-  color: var(--primary-color, #409eff);
-  background: var(--hover-bg, #f5f5f5);
-}
-
-.tab-item.active {
-  color: var(--primary-color, #409eff);
-  background: var(--primary-color-light, #e6f7ff);
-  font-weight: 600;
-}
-
-.tab-item .el-icon {
-  font-size: 16px;
-}
-
-.points-play-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.points-play-content::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-/* 农场页占满剩余高度，内部自行布局，不出现外层滚动 */
-.points-play-content--farm {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
+<style scoped lang="less">
+@import '../styles/points-play.less';
 
 .points-play-content--farm > :deep(.farm-page) {
   flex: 1 1 auto;
   min-height: 0;
   max-height: 100%;
+}
+
+.points-play-content--stock > :deep(.stock-market-container) {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  max-height: 100%;
+  max-width: 100%;
+  width: 100%;
 }
 </style>
