@@ -17,6 +17,7 @@ import Reader from "../views/Reader/index.vue";
 import PetCenter from "../views/PetCenter.vue";
 import PointsPlay from "../views/PointsPlay.vue";
 import StockMarket from "../views/StockMarket.vue";
+import Farm from "../views/Farm.vue";
 import FishCircle from "../views/FishCircle.vue";
 import PetTournament from "../views/PetTournament.vue";
 import TowerClimb from "../views/TowerClimb.vue";
@@ -102,6 +103,11 @@ const routes = [
             path: "stock-market",
             name: "StockMarket",
             component: StockMarket,
+          },
+          {
+            path: "farm",
+            name: "Farm",
+            component: Farm,
           },
           {
             path: "tournament",

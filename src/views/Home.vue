@@ -70,6 +70,10 @@
               <i class="fas fa-exchange-alt"></i>
               <span>切换账号</span>
             </div> -->
+            <div class="user-card-item" @click.stop="openPersonalCard">
+              <i class="fas fa-id-card"></i>
+              <span>个人卡片</span>
+            </div>
             <div
               class="user-card-item"
               @click.stop="showUserProfile"
@@ -151,6 +155,8 @@
         </div>
       </template>
     </el-dialog>
+
+    <UserDetailModal v-model="showUserDetailModal" :user="detailModalUser" />
   </div>
 </template>
 
@@ -168,6 +174,7 @@ import { chatApi } from "../api/chat";
 import * as lottie from "lottie-web";
 import logoData from "../js/logo";
 import WelcomeDialog from "../components/WelcomeDialog.vue";
+import UserDetailModal from "../components/UserDetailModal.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -179,6 +186,8 @@ const livenessStore = useLivenessStore();
 const unreadPrivateCount = ref(0);
 const isCollapsed = ref(true);
 const showUserCard = ref(false);
+const showUserDetailModal = ref(false);
+const detailModalUser = ref(null);
 const showAccountDialog = ref(false);
 const savedAccounts = ref([]);
 const isChatroomFullscreen = ref(false);
@@ -306,11 +315,31 @@ const handleChatroomFullscreenChanged = (event) => {
   isChatroomFullscreen.value = event?.detail?.enabled === true;
 };
 
+function syncNotificationPolling() {
+  if (route.path === "/farm") {
+    notificationStore.stopChecking();
+    return;
+  }
+  if (userStore.isLoggedIn) {
+    notificationStore.fetchUnreadCount(true);
+    notificationStore.startChecking();
+  }
+}
+
+watch(
+  () => route.path,
+  () => {
+    syncNotificationPolling();
+  },
+);
+
 onMounted(async () => {
   console.log("Home 组件挂载...");
   await userStore.init();
   loadChatroomFullscreenSetting();
-  await notificationStore.init();
+  if (route.path !== "/farm") {
+    await notificationStore.init();
+  }
   await eventRemindStore.init();
   await livenessStore.init();
 
@@ -376,7 +405,32 @@ const logout = () => {
   router.push("/login");
 };
 
+const openPersonalCard = () => {
+  showUserCard.value = false;
+  const info = userStore.userInfo;
+  if (!info) return;
+  detailModalUser.value = {
+    id: info.id,
+    userId: info.id,
+    userName: info.userName,
+    userNickname: info.userNickname || info.userName,
+    userAvatar: info.userAvatar,
+    userAvatarURL: info.userAvatar,
+    level: info.level,
+    points: info.points,
+    vip: info.vip,
+    isVip: info.vip,
+    avatarFramerUrl: info.avatarFramerUrl,
+    momentsBgUrl: info.momentsBgUrl,
+    followerCount: info.followerCount,
+    followingCount: info.followingCount,
+    isAdmin: info.userRole === "admin",
+  };
+  showUserDetailModal.value = true;
+};
+
 const showUserProfile = () => {
+  showUserCard.value = false;
   const identifier =
     userStore.userInfo?.id != null && userStore.userInfo?.id !== ""
       ? String(userStore.userInfo.id)
@@ -744,7 +798,9 @@ const goToLogin = () => {
 }
 
 .content-area {
-  flex-grow: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .content-area.chatroom-fullscreen-area {

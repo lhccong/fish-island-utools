@@ -16,9 +16,38 @@
         <span class="user-name">{{
           viewingUser ? viewingUser.userName : currentDisplayName
         }}</span>
+        <div v-if="coverShowFollow" class="cover-follow-row">
+          <el-button
+            size="small"
+            :loading="coverFollowLoading"
+            :class="
+              coverIsFollowing ? 'cover-follow-btn-active' : 'cover-follow-btn-default'
+            "
+            @mouseenter="coverIsFollowing && (coverFollowHover = true)"
+            @mouseleave="coverFollowHover = false"
+            @click="handleCoverToggleFollow"
+          >
+            {{
+              coverIsFollowing
+                ? coverFollowHover
+                  ? "取消关注"
+                  : "✓ 已关注"
+                : "+ 关注"
+            }}
+          </el-button>
+        </div>
+        <div v-if="coverProfileUser" class="cover-follow-stats">
+          <span class="cover-stat">
+            <b>{{ coverFollowingCount ?? "-" }}</b> 关注
+          </span>
+          <span class="cover-stat-divider" />
+          <span class="cover-stat">
+            <b>{{ coverProfileUser.followerCount ?? "-" }}</b> 粉丝
+          </span>
+        </div>
         <div
           class="user-avatar-wrap"
-          @click="!viewingUser ? handleViewSelfCircle() : undefined"
+          @click="!viewingUser ? handleViewSelfCircle() : openUserDetailModal()"
         >
           <img
             v-if="avatarUrl"
@@ -162,13 +191,31 @@
                     </el-dropdown>
                   </div>
                 </div>
+                <div
+                  v-if="commentInputVisible(m.id, 'first')"
+                  class="first-comment-input-wrap"
+                >
+                  <FishCircleCommentInput
+                    :visible="true"
+                    :inline="false"
+                    :text="commentInputMap[m.id] || ''"
+                    reply-hint=""
+                    :images="getCommentImages(m.id)"
+                    :image-uploading="!!commentImgUploading[String(m.id)]"
+                    :submitting="commentSubmitting"
+                    @update:text="commentInputMap[m.id] = $event"
+                    @submit="submitComment(m.id)"
+                    @clear-reply="replyTarget = null"
+                    @remove-image="(ix) => removeCommentImg(m.id, ix)"
+                    @paste="(e) => onCommentPaste(m.id, e)"
+                    @file="(e) => onCommentFile(m.id, e)"
+                  />
+                </div>
               </div>
             </div>
 
             <div
-              v-if="
-                ((commentsMap[m.id] || []).length > 0 || showInputId === m.id)
-              "
+              v-if="(commentsMap[m.id] || []).length > 0"
               class="comment-section"
             >
               <div v-if="(commentsMap[m.id] || []).length" class="comment-list">
@@ -193,9 +240,7 @@
                         <span class="comment-time">{{ formatTime(c.createTime) }}</span>
                         <span
                           class="link"
-                          @click="
-                            setReply(m.id, c.id, c.userName)
-                          "
+                          @click="setReply(m.id, c.id, c.userName)"
                         >回复</span>
                         <span
                           v-if="canDeleteComment(c)"
@@ -203,6 +248,26 @@
                           @click="handleDeleteComment(c.id, m.id)"
                         >删除</span>
                       </div>
+                      <FishCircleCommentInput
+                        :visible="commentInputVisible(m.id, c.id)"
+                        :text="commentInputMap[m.id] || ''"
+                        :reply-hint="
+                          replyTarget &&
+                          String(replyTarget.momentId) === String(m.id) &&
+                          String(replyTarget.anchorCommentId) === String(c.id)
+                            ? replyTarget.userName
+                            : ''
+                        "
+                        :images="getCommentImages(m.id)"
+                        :image-uploading="!!commentImgUploading[String(m.id)]"
+                        :submitting="commentSubmitting"
+                        @update:text="commentInputMap[m.id] = $event"
+                        @submit="submitComment(m.id)"
+                        @clear-reply="replyTarget = null"
+                        @remove-image="(ix) => removeCommentImg(m.id, ix)"
+                        @paste="(e) => onCommentPaste(m.id, e)"
+                        @file="(e) => onCommentFile(m.id, e)"
+                      />
                       <template v-if="(c.children || []).length">
                         <div
                           v-if="!expandedReplies[c.id]"
@@ -236,9 +301,7 @@
                                 <span class="comment-time">{{ formatTime(child.createTime) }}</span>
                                 <span
                                   class="link"
-                                  @click="
-                                    setReply(m.id, c.id, child.userName)
-                                  "
+                                  @click="setReply(m.id, c.id, child.userName, child.id)"
                                 >回复</span>
                                 <span
                                   v-if="canDeleteComment(child)"
@@ -246,6 +309,26 @@
                                   @click="handleDeleteComment(child.id, m.id)"
                                 >删除</span>
                               </div>
+                              <FishCircleCommentInput
+                                :visible="commentInputVisible(m.id, child.id)"
+                                :text="commentInputMap[m.id] || ''"
+                                :reply-hint="
+                                  replyTarget &&
+                                  String(replyTarget.momentId) === String(m.id) &&
+                                  String(replyTarget.anchorCommentId) === String(child.id)
+                                    ? replyTarget.userName
+                                    : ''
+                                "
+                                :images="getCommentImages(m.id)"
+                                :image-uploading="!!commentImgUploading[String(m.id)]"
+                                :submitting="commentSubmitting"
+                                @update:text="commentInputMap[m.id] = $event"
+                                @submit="submitComment(m.id)"
+                                @clear-reply="replyTarget = null"
+                                @remove-image="(ix) => removeCommentImg(m.id, ix)"
+                                @paste="(e) => onCommentPaste(m.id, e)"
+                                @file="(e) => onCommentFile(m.id, e)"
+                              />
                             </div>
                           </div>
                           <div
@@ -279,57 +362,21 @@
                 >
                   收起
                 </div>
-              </div>
-
-              <div v-if="showInputId === m.id" class="comment-input-area">
-                <div v-if="replyTarget && replyTarget.momentId === m.id" class="reply-hint">
-                  回复 {{ replyTarget.userName }}
-                  <i class="fas fa-times" @click="replyTarget = null" />
-                </div>
-                <div v-if="getCommentImages(m.id).length" class="comment-img-preview">
-                  <div
-                    v-for="(u, ix) in getCommentImages(m.id)"
-                    :key="ix"
-                    class="cimg-item"
-                  >
-                    <img :src="u" alt="" />
-                    <span class="rm" @click="removeCommentImg(m.id, ix)"><i class="fas fa-times" /></span>
-                  </div>
-                </div>
-                <div class="comment-input-row">
-                  <el-input
-                    v-model="commentInputMap[m.id]"
-                    :placeholder="
-                      replyTarget && replyTarget.momentId === m.id
-                        ? `回复 ${replyTarget.userName}...`
-                        : '写评论...'
-                    "
-                    maxlength="200"
-                    @keyup.enter="submitComment(m.id)"
-                    @paste="(e) => onCommentPaste(m.id, e)"
-                  />
-                  <label class="img-add">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      :disabled="getCommentImages(m.id).length >= 3 || commentImgUploading[String(m.id)]"
-                      @change="(e) => onCommentFile(m.id, e)"
-                    >
-                    <i class="fas fa-image" />
-                  </label>
-                  <el-button
-                    type="primary"
-                    size="small"
-                    :loading="commentSubmitting"
-                    :disabled="
-                      !((commentInputMap[m.id] || '').trim()) &&
-                        !getCommentImages(m.id).length
-                    "
-                    @click="submitComment(m.id)"
-                  >
-                    发送
-                  </el-button>
-                </div>
+                <FishCircleCommentInput
+                  :visible="commentInputVisible(m.id, 'bottom')"
+                  :inline="false"
+                  :text="commentInputMap[m.id] || ''"
+                  reply-hint=""
+                  :images="getCommentImages(m.id)"
+                  :image-uploading="!!commentImgUploading[String(m.id)]"
+                  :submitting="commentSubmitting"
+                  @update:text="commentInputMap[m.id] = $event"
+                  @submit="submitComment(m.id)"
+                  @clear-reply="replyTarget = null"
+                  @remove-image="(ix) => removeCommentImg(m.id, ix)"
+                  @paste="(e) => onCommentPaste(m.id, e)"
+                  @file="(e) => onCommentFile(m.id, e)"
+                />
               </div>
             </div>
           </div>
@@ -554,6 +601,8 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <UserDetailModal v-model="userDetailVisible" :user="userDetailSeed" />
   </div>
 </template>
 
@@ -571,7 +620,10 @@ import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useUserStore } from "../stores/user";
 import { userApi } from "../api/user";
+import { followApi } from "../api/follow";
 import * as momentsApi from "../api/moments";
+import UserDetailModal from "../components/UserDetailModal.vue";
+import FishCircleCommentInput from "../components/fish-circle/FishCircleCommentInput.vue";
 import { createImagePreviewWindow } from "../utils/imagePreview";
 import {
   extractCommentImages,
@@ -595,6 +647,12 @@ const viewingUserId = ref(undefined);
 const viewingUser = ref(null);
 const viewingSelf = ref(false);
 const loginUserExtra = ref(null);
+
+const coverIsFollowing = ref(false);
+const coverFollowLoading = ref(false);
+const coverFollowHover = ref(false);
+const userDetailVisible = ref(false);
+const userDetailSeed = ref(null);
 
 const commentsMap = ref({});
 const commentInputMap = reactive({});
@@ -658,6 +716,80 @@ const coverBgUrl = computed(() => {
   }
   return loginUserExtra.value?.momentsBgUrl || userStore.userInfo?.momentsBgUrl;
 });
+
+const coverProfileUser = computed(() => {
+  if (viewingUser.value) return viewingUser.value;
+  if (viewingSelf.value) {
+    return loginUserExtra.value || userStore.userInfo;
+  }
+  return null;
+});
+
+const coverFollowingCount = computed(() => {
+  const u = coverProfileUser.value;
+  if (!u) return undefined;
+  return u.followingCount ?? u.followingUserCount;
+});
+
+const coverShowFollow = computed(
+  () =>
+    !!viewingUser.value &&
+    !!meId.value &&
+    String(viewingUser.value.id ?? viewingUser.value.userId) !== meId.value,
+);
+
+async function refreshCoverFollowState(userId) {
+  if (!userId || !meId.value || String(userId) === meId.value) {
+    coverIsFollowing.value = false;
+    return;
+  }
+  try {
+    const res = await followApi.isFollowing(String(userId));
+    const data = res?.data ?? res;
+    coverIsFollowing.value = !!(data === true || data?.data === true || res === true);
+  } catch {
+    coverIsFollowing.value = false;
+  }
+}
+
+async function handleCoverToggleFollow() {
+  const uid = viewingUser.value?.id ?? viewingUser.value?.userId;
+  if (!uid || !meId.value) return;
+  coverFollowLoading.value = true;
+  try {
+    const res = await followApi.toggleFollow(String(uid));
+    const nowFollowing = !!(res?.data ?? res);
+    coverIsFollowing.value = nowFollowing;
+    const delta = nowFollowing ? 1 : -1;
+    viewingUser.value = {
+      ...viewingUser.value,
+      followerCount: Math.max(
+        0,
+        (Number(viewingUser.value.followerCount) || 0) + delta,
+      ),
+    };
+    ElMessage.success(nowFollowing ? "关注成功" : "已取消关注");
+  } catch (err) {
+    ElMessage.error(err?.message || "操作失败");
+  } finally {
+    coverFollowLoading.value = false;
+    coverFollowHover.value = false;
+  }
+}
+
+function openUserDetailModal() {
+  if (!viewingUser.value) return;
+  userDetailSeed.value = {
+    id: viewingUser.value.id ?? viewingUser.value.userId,
+    userName: viewingUser.value.userName,
+    userAvatar: viewingUser.value.userAvatar || viewingUser.value.userAvatarURL,
+    momentsBgUrl: viewingUser.value.momentsBgUrl,
+    followerCount: viewingUser.value.followerCount,
+    followingCount:
+      viewingUser.value.followingCount ?? viewingUser.value.followingUserCount,
+  };
+  userDetailVisible.value = true;
+}
 
 function formatTime(timeStr) {
   return formatMomentTime(timeStr);
@@ -840,12 +972,14 @@ async function handleViewUserCircle(userId, avatar, name) {
   if (String(userId) === meId.value) return;
   window.scrollTo({ top: 0, behavior: "smooth" });
   viewingSelf.value = false;
+  coverFollowHover.value = false;
   try {
     const u = await userApi.getUserVoById(userId);
     viewingUser.value = u || { id: userId, userName: name, userAvatar: avatar };
   } catch {
     viewingUser.value = { id: userId, userName: name, userAvatar: avatar };
   }
+  await refreshCoverFollowState(userId);
   moments.value = [];
   commentsMap.value = {};
   currentPage.value = 1;
@@ -858,6 +992,8 @@ async function handleBackToMain() {
   window.scrollTo({ top: 0, behavior: "smooth" });
   viewingUser.value = null;
   viewingSelf.value = false;
+  coverIsFollowing.value = false;
+  coverFollowHover.value = false;
   viewingUserId.value = undefined;
   moments.value = [];
   commentsMap.value = {};
@@ -894,8 +1030,30 @@ function visibleComments(momentId) {
   return all.slice(0, 3);
 }
 
-function setReply(momentId, commentId, userName) {
-  replyTarget.value = { momentId, commentId, userName };
+function commentInputVisible(momentId, anchorId) {
+  if (showInputId.value !== momentId) return false;
+  const list = commentsMap.value[momentId] || [];
+  const mk = String(momentId);
+  if (!list.length) {
+    return anchorId === "first" && !replyTarget.value;
+  }
+  if (!replyTarget.value || String(replyTarget.value.momentId) !== mk) {
+    return anchorId === "bottom";
+  }
+  return String(replyTarget.value.anchorCommentId) === String(anchorId);
+}
+
+function setReply(momentId, parentId, userName, anchorId) {
+  const anchor = anchorId ?? parentId;
+  replyTarget.value = {
+    momentId,
+    commentId: parentId,
+    anchorCommentId: anchor,
+    userName,
+  };
+  if (anchor !== parentId) {
+    expandedReplies[parentId] = true;
+  }
   showInputId.value = momentId;
 }
 
@@ -1306,6 +1464,7 @@ onMounted(async () => {
       const u = await userApi.getUserVoById(q);
       viewingUser.value = u || { id: q };
     } catch (_) {}
+    await refreshCoverFollowState(q);
     await fetchMoments(false);
   } else {
     await fetchMoments(false);
@@ -1332,13 +1491,19 @@ watch(
       } catch (_) {
         viewingUser.value = { id: uid };
       }
+      await refreshCoverFollowState(uid);
       moments.value = [];
       currentPage.value = 1;
       hasMore.value = true;
       await fetchMoments(false);
     }
-  }
+  },
 );
+
+watch(viewingUser, (u) => {
+  const uid = u?.id ?? u?.userId;
+  if (uid != null) refreshCoverFollowState(uid);
+});
 </script>
 
 <style scoped>
@@ -1390,7 +1555,52 @@ watch(
   font-size: 18px;
   font-weight: 600;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  margin-bottom: 6px;
+}
+
+.cover-follow-row {
   margin-bottom: 8px;
+}
+
+.cover-follow-btn-default {
+  background: #ff8c00 !important;
+  border-color: #ff8c00 !important;
+  color: #fff !important;
+}
+
+.cover-follow-btn-active {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.92) !important;
+  color: #666 !important;
+}
+
+.cover-follow-btn-active:hover {
+  background: #fff5f5 !important;
+  border-color: #ffccc7 !important;
+  color: #ff4d4f !important;
+}
+
+.cover-follow-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: #fff;
+  font-size: 12px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.cover-stat b {
+  font-size: 15px;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.cover-stat-divider {
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .user-avatar-wrap {
@@ -1597,6 +1807,12 @@ watch(
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.first-comment-input-wrap {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter, #ebeef5);
 }
 
 .moment-time {

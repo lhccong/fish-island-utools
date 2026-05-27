@@ -1,0 +1,435 @@
+/* utools 积分玩法内嵌：不用 ProLayout 顶栏，高度跟随父容器 */
+.points-play-content .farm-page--embedded {
+  --layout-header-h: 0px;
+  --farm-header-h: 64px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.points-play-content .farm-page--embedded .farm-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #95de64;
+  border-top: none;
+  box-sizing: border-box;
+}
+
+.points-play-content .farm-page--embedded .farm-content.farm-spin-wrap {
+  flex: 1 1 auto;
+}
+
+/* 场景：全宽田地 + 右侧悬浮操作栏（默认仅图标，点击展开） */
+.points-play-content .farm-page--embedded .farm-scene {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: visible;
+  z-index: 0;
+}
+
+.points-play-content .farm-page--embedded .farm-scene-main {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  container-type: size;
+  container-name: farm-scene;
+}
+
+.points-play-content .farm-page--embedded .farm-world {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  min-height: 0;
+  max-height: 100%;
+}
+
+/* 顶栏：单行 — 左标题 | 右（统计胶囊 + 操作按钮，与 frontend 一致） */
+.points-play-content .farm-page--embedded .farm-header-bar {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 6px 16px;
+  border: 1px solid #95de64;
+  border-bottom: none;
+  box-sizing: border-box;
+}
+
+.points-play-content .farm-page--embedded .farm-header-left {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.points-play-content .farm-page--embedded .farm-header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.points-play-content .farm-page--embedded .farm-header-stats {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.points-play-content .farm-page--embedded .farm-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.points-play-content .farm-page--embedded .farm-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
+/* 左侧场景栏：好友按钮（与信箱同尺寸 48×48） */
+.points-play-content .farm-page--embedded .farm-deco-friends {
+  position: relative;
+  z-index: 6;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px) scale(1.04);
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+.points-play-content .farm-page--embedded .farm-deco-friends-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: 2px solid #f5e6a8;
+  background: linear-gradient(180deg, #d4b896 0%, #a67c52 55%, #8b5e3c 100%);
+  color: #fff8e8;
+  box-shadow:
+    0 4px 12px rgba(60, 40, 20, 0.2),
+    inset 0 1px 3px rgba(255, 255, 255, 0.3);
+
+  .el-icon {
+    font-size: 24px;
+    color: #ffd54f;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  }
+}
+
+.points-play-content .farm-page--embedded .farm-header-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fff;
+  color: rgba(0, 0, 0, 0.65);
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02);
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+
+  .el-icon {
+    font-size: 18px;
+  }
+
+  .el-icon.is-loading {
+    animation: farm-refresh-spin 0.8s linear infinite;
+  }
+
+  &:hover:not(:disabled) {
+    color: #409eff;
+    border-color: #409eff;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+}
+
+@keyframes farm-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.points-play-content .farm-page--embedded .plant-all-btn.el-button,
+.points-play-content .farm-page--embedded .harvest-all-btn.el-button,
+.points-play-content .farm-page--embedded .steal-all-btn.el-button {
+  height: 32px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+}
+
+.points-play-content .farm-page--embedded .plant-all-btn.el-button {
+  background: linear-gradient(135deg, #52c41a, #95de64) !important;
+}
+
+.points-play-content .farm-page--embedded .harvest-all-btn.el-button {
+  background: linear-gradient(135deg, #389e0d, #73d13d) !important;
+}
+
+.points-play-content .farm-page--embedded .steal-all-btn.el-button {
+  background: linear-gradient(135deg, #fa8c16, #ffc53d) !important;
+}
+
+.points-play-content .farm-page--embedded .farm-deco-back-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.points-play-content .farm-page--embedded .farm-deco-back-label {
+  font-size: 11px;
+}
+
+.points-play-content .farm-page--embedded .farm-friends-sort .el-icon {
+  font-size: 10px;
+}
+
+.points-play-content .farm-page--embedded .farm-friends-search .el-icon {
+  font-size: 14px;
+}
+
+/* 田地：居中铺满主区，右侧只给农舍留空（操作栏已在 scene 外列） */
+.points-play-content .farm-page--embedded .farm-land-field {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  padding: 8px clamp(56px, 9vw, 96px) clamp(52px, 9vh, 72px) clamp(48px, 6vw, 64px);
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.points-play-content .farm-page--embedded.farm-page--visiting-friend .farm-land-field {
+  padding-top: 6px;
+  padding-bottom: clamp(48px, 8vh, 64px);
+}
+
+/* 嵌入页田地区 overflow 会裁切底部按钮，改为浮在田地下方 */
+.points-play-content .farm-page--embedded .farm-harvest-dock {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(8px, 1.2vh, 16px);
+  transform: translateX(-50%);
+  z-index: 12;
+  margin: 0;
+  pointer-events: auto;
+}
+
+.points-play-content .farm-page--embedded .farm-field-stack {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  max-height: 100%;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 0;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.points-play-content .farm-page--embedded .farm-field-banners {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  margin-bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.points-play-content .farm-page--embedded.farm-page--visiting-friend .farm-field-banners {
+  gap: 4px 6px;
+}
+
+.points-play-content .farm-page--embedded.farm-page--visiting-friend .farm-field-banner {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+/* 外圈绿色草皮：与 frontend 一致，底部略加厚避免「底下绿边太窄」 */
+.points-play-content .farm-page--embedded .farm-field-board {
+  padding: clamp(12px, 2vw, 18px) clamp(14px, 2vw, 18px)
+    clamp(20px, 3.2vh, 28px);
+  border-radius: 20px;
+}
+
+.points-play-content .farm-page--embedded .farm-field-inner {
+  padding: clamp(12px, 1.8vw, 18px) clamp(12px, 1.6vw, 16px)
+    clamp(8px, 1.2vh, 12px);
+}
+
+/* 展开操作栏时压过田地横幅、农舍等场景装饰 */
+.points-play-content .farm-page--embedded .farm-side-dock-wrap.is-expanded {
+  z-index: 60;
+}
+
+.points-play-content .farm-page--embedded .farm-field-banner {
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+/* 网格区单独作为容器，地块尺寸按「横幅下方实际可用高度」计算，避免拜访时被裁切 */
+.points-play-content .farm-page--embedded .farm-grid-stage {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  max-height: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+  container-name: farm-grid;
+}
+
+.points-play-content .farm-page--embedded .farm-stage-cluster {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+/* 地块尺寸：按网格容器 cqw/cqh，公式与 frontend 一致（行高 1.22） */
+.points-play-content .farm-page--embedded .farm-plots-grid {
+  --tile-size: clamp(
+    26px,
+    min(
+      calc((100cqw - 80px) / 6.5),
+      calc((100cqh - 88px) / 5),
+      9vmin,
+      68px
+    ),
+    72px
+  );
+  --plot-gap: clamp(5px, 0.8vw, 10px);
+}
+
+.points-play-content .farm-page--embedded.farm-page--visiting-friend .farm-plots-grid {
+  --tile-size: clamp(
+    24px,
+    min(
+      calc((100cqw - 80px) / 6.5),
+      calc((100cqh - 96px) / 5),
+      8.5vmin,
+      64px
+    ),
+    68px
+  );
+}
+
+@supports not (width: 100cqw) {
+  .points-play-content .farm-page--embedded .farm-plots-grid {
+    --tile-size: clamp(26px, min(8.5vmin, 10vw, 64px), 68px);
+  }
+
+  .points-play-content .farm-page--embedded.farm-page--visiting-friend .farm-plots-grid {
+    --tile-size: clamp(24px, min(8vmin, 9.5vw, 60px), 64px);
+  }
+}
+
+/* 农舍在田地右下，层级低于展开的操作栏 */
+.points-play-content .farm-page--embedded .farm-world-side--right {
+  right: clamp(4px, 0.8vw, 10px);
+  bottom: clamp(4px, 0.8vh, 10px);
+  width: clamp(64px, 10vw, 100px);
+  max-width: 22%;
+  z-index: 4;
+}
+
+.points-play-content .farm-page--embedded .farm-cottage-img {
+  max-height: min(26vh, 160px) !important;
+}
+
+/* u 端不展示宠物 */
+.points-play-content .farm-page--embedded .farm-pet-nest-wrap--cottage {
+  display: none !important;
+}
+
+@media (min-width: 1200px) {
+  .points-play-content .farm-page--embedded .farm-land-field {
+    padding-right: clamp(64px, 10vw, 110px);
+  }
+
+  .points-play-content .farm-page--embedded .farm-plots-grid {
+    --tile-size: clamp(
+      30px,
+      min(
+        calc((100cqw - 88px) / 6.5),
+        calc((100cqh - 92px) / 5),
+        76px
+      ),
+      80px
+    );
+  }
+
+  .points-play-content .farm-page--embedded.farm-page--visiting-friend .farm-plots-grid {
+    --tile-size: clamp(
+      28px,
+      min(
+        calc((100cqw - 88px) / 6.5),
+        calc((100cqh - 100px) / 5),
+        72px
+      ),
+      76px
+    );
+  }
+}

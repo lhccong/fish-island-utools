@@ -1,56 +1,45 @@
 <template>
   <div class="stock-market-container">
-    <!-- 内容区 -->
     <div class="stock-market-content">
-      <!-- 刷新按钮 -->
-      <div class="toolbar">
-        <el-button
-          :icon="Refresh"
-          @click="refreshData"
-          :loading="loading"
-          round
-        >
-          刷新数据
+      <div class="stock-page-header">
+        <div class="stock-page-header__left">
+          <el-icon class="stock-page-header__icon"><TrendCharts /></el-icon>
+          <div>
+            <div class="stock-page-header__title">摸鱼股市</div>
+            <div class="stock-page-header__desc">
+              使用积分交易上证、深证成指、创业板指、沪深300、上证50 等主要指数
+            </div>
+          </div>
+        </div>
+        <el-button :icon="Refresh" text type="primary" :loading="loading" @click="refreshData">
+          刷新
         </el-button>
       </div>
 
-      <!-- 统计卡片 -->
       <div class="stats-row">
-        <div class="stat-card blue">
-          <div class="stat-icon">
-            <el-icon><Wallet /></el-icon>
-          </div>
-          <div class="stat-content">
-            <div class="stat-title">总积分</div>
-            <div class="stat-value">{{ formatNumber(stats.totalMarketValue) }}</div>
+        <div class="stat-card stat-card--points">
+          <div class="stat-title">可用积分</div>
+          <div class="stat-value">{{ formatNumber(availablePoints) }}</div>
+        </div>
+        <div class="stat-card stat-card--market">
+          <div class="stat-title">持仓市值</div>
+          <div class="stat-value">{{ formatNumber(stats.totalMarketValue) }}</div>
+        </div>
+        <div class="stat-card" :class="stats.dayProfit >= 0 ? 'stat-card--up' : 'stat-card--down'">
+          <div class="stat-title">今日盈亏</div>
+          <div class="stat-value">
+            {{ (stats.dayProfit >= 0 ? '+' : '') + formatNumber(stats.dayProfit) }}
           </div>
         </div>
-        <div class="stat-card" :class="stats.dayProfit >= 0 ? 'red' : 'green'">
-          <div class="stat-icon">
-            <el-icon><TrendCharts /></el-icon>
-          </div>
-          <div class="stat-content">
-            <div class="stat-title">今日盈亏</div>
-            <div class="stat-value">
-              {{ (stats.dayProfit >= 0 ? '+' : '') + formatNumber(stats.dayProfit) }}
-            </div>
-          </div>
-        </div>
-        <div class="stat-card" :class="stats.totalProfit >= 0 ? 'red' : 'green'">
-          <div class="stat-icon">
-            <el-icon><Coin /></el-icon>
-          </div>
-          <div class="stat-content">
-            <div class="stat-title">累计盈亏</div>
-            <div class="stat-value">
-              {{ (stats.totalProfit >= 0 ? '+' : '') + formatNumber(stats.totalProfit) }}
-            </div>
+        <div class="stat-card" :class="stats.totalProfit >= 0 ? 'stat-card--up' : 'stat-card--down'">
+          <div class="stat-title">累计盈亏</div>
+          <div class="stat-value">
+            {{ (stats.totalProfit >= 0 ? '+' : '') + formatNumber(stats.totalProfit) }}
           </div>
         </div>
       </div>
 
-      <!-- 标签页 -->
-      <el-tabs v-model="activeTab" type="card">
+      <el-tabs v-model="activeTab" class="stock-tabs">
         <!-- 市场行情 -->
         <el-tab-pane name="market">
           <template #label>
@@ -64,37 +53,66 @@
               :sm="12"
               :lg="8"
             >
-              <div class="market-card" :class="parseNumericValue(index.changeValue) >= 0 ? 'up' : 'down'">
+              <div
+                class="market-card"
+                :class="getPositionByCode(index.indexCode) ? 'market-card--holding' : ''"
+              >
                 <div class="market-header">
                   <div class="market-info">
-                    <div class="market-name">{{ index.indexName }}</div>
-                    <div class="market-code">{{ index.indexCode }}</div>
-                  </div>
-                  <div class="market-trend">
-                    <el-icon v-if="parseNumericValue(index.changeValue) >= 0" class="trend-up"><ArrowUp /></el-icon>
-                    <el-icon v-else class="trend-down"><ArrowDown /></el-icon>
+                    <div class="market-name-wrap">
+                      <span class="market-name">{{ index.indexName }}</span>
+                      <template v-if="getPositionByCode(index.indexCode)">
+                        <el-tag type="primary" size="small" effect="light" class="holding-tag">
+                          已持仓
+                        </el-tag>
+                        <span class="index-holding-brief">
+                          持有 {{ formatNumber(getPositionByCode(index.indexCode).totalShares) }} 份 ·
+                          市值 ¥{{ formatNumber(getPositionByCode(index.indexCode).marketValue) }}
+                        </span>
+                      </template>
+                      <el-tag
+                        v-if="!isTradableIndex(index.indexCode)"
+                        type="info"
+                        size="small"
+                        effect="plain"
+                        class="holding-tag"
+                      >
+                        暂不可交易
+                      </el-tag>
+                    </div>
+                    <span class="market-code">{{ index.indexCode }}</span>
                   </div>
                 </div>
-                <div class="market-value">
-                  <span class="current-price">{{ parseNumericValue(index.currentValue).toFixed(2) }}</span>
-                </div>
-                <div class="market-change">
-                  <span class="change-amount" :class="parseNumericValue(index.changeValue) >= 0 ? 'up' : 'down'">
-                    {{ parseNumericValue(index.changeValue) >= 0 ? '+' : '' }}{{ parseNumericValue(index.changeValue).toFixed(2) }}
+                <div class="market-card__quote">
+                  <span
+                    class="current-price"
+                    :class="parseNumericValue(index.changeValue) >= 0 ? 'up' : 'down'"
+                  >
+                    {{ parseNumericValue(index.currentValue).toFixed(2) }}
                   </span>
-                  <span class="change-percent" :class="parseNumericValue(index.changePercent) >= 0 ? 'up' : 'down'">
-                    {{ parseNumericValue(index.changePercent) >= 0 ? '+' : '' }}{{ parseNumericValue(index.changePercent).toFixed(2) }}%
-                  </span>
+                  <div class="market-change">
+                    <span
+                      class="change-pill"
+                      :class="parseNumericValue(index.changeValue) >= 0 ? 'up' : 'down'"
+                    >
+                      {{ parseNumericValue(index.changeValue) >= 0 ? '+' : '' }}{{ parseNumericValue(index.changeValue).toFixed(2) }}
+                    </span>
+                    <span
+                      class="change-pill"
+                      :class="parseNumericValue(index.changePercent) >= 0 ? 'up' : 'down'"
+                    >
+                      {{ parseNumericValue(index.changePercent) >= 0 ? '+' : '' }}{{ parseNumericValue(index.changePercent).toFixed(2) }}%
+                    </span>
+                  </div>
                 </div>
                 <div class="market-action">
                   <el-button
                     type="primary"
                     :icon="ShoppingCart"
-                    :disabled="index.indexCode !== 'sh000001'"
-                    @click="handleOpenTradeModal('buy', index)"
-                    round
+                    :disabled="!isTradableIndex(index.indexCode)"
+                    @click="handleOpenTradeModalDebounced('buy', index)"
                   >
-                    买入
+                    {{ getPositionByCode(index.indexCode) ? '加仓' : '买入' }}
                   </el-button>
                 </div>
               </div>
@@ -105,7 +123,10 @@
         <!-- 我的持仓 -->
         <el-tab-pane name="positions">
           <template #label>
-            <span><el-icon><Wallet /></el-icon> 我的持仓</span>
+            <span>
+              <el-icon><Wallet /></el-icon> 我的持仓
+              <el-badge v-if="positions.length > 0" :value="positions.length" class="position-badge" />
+            </span>
           </template>
           <div v-if="positions.length > 0">
             <el-row :gutter="16">
@@ -116,7 +137,7 @@
                 :sm="12"
                 :lg="8"
               >
-                <div class="position-card" :class="(position.changePercent || 0) >= 0 ? 'up' : 'down'">
+                <div class="position-card">
                   <div class="position-header">
                     <div class="position-info">
                       <div class="position-name">{{ position.indexName }}</div>
@@ -159,18 +180,20 @@
                   <div class="position-actions">
                     <el-button
                       type="primary"
-                      @click="handleOpenTradeModal('buy', undefined, position)"
-                      round
                       plain
+                      @click="handleOpenTradeModalDebounced(
+                        'buy',
+                        marketIndices.find((i) => i.indexCode === position.indexCode),
+                        position,
+                      )"
                     >
                       加仓
                     </el-button>
                     <el-button
                       type="danger"
-                      :disabled="!position.availableShares"
-                      @click="handleOpenTradeModal('sell', undefined, position)"
-                      round
                       plain
+                      :disabled="!position.availableShares"
+                      @click="handleOpenTradeModalDebounced('sell', undefined, position)"
                     >
                       卖出
                     </el-button>
@@ -187,11 +210,14 @@
           <template #label>
             <span><el-icon><Clock /></el-icon> 交易记录</span>
           </template>
-          <div class="transaction-table-wrapper">
+          <div class="transaction-panel">
+            <div class="transaction-table-scroll">
             <el-table
+              ref="transactionTableRef"
               :data="transactions"
               v-loading="loading"
-              style="width: 100%"
+              stripe
+              class="transaction-table"
             >
               <el-table-column prop="createTime" label="交易时间" width="180" />
               <el-table-column prop="indexName" label="指数名称" width="150" />
@@ -238,15 +264,19 @@
                 </template>
               </el-table-column>
             </el-table>
+            </div>
+            <div class="transaction-pagination">
+              <el-pagination
+                v-model:current-page="transactionPage"
+                :page-size="10"
+                :total="transactionTotal"
+                layout="total, prev, pager, next"
+                small
+                background
+                @current-change="loadTransactions"
+              />
+            </div>
           </div>
-          <el-pagination
-            v-model:current-page="transactionPage"
-            :page-size="10"
-            :total="transactionTotal"
-            layout="total, prev, pager, next"
-            @current-change="loadTransactions"
-            style="margin-top: 16px;"
-          />
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -256,10 +286,19 @@
       v-model="tradeModalVisible"
       :title="tradeType === 'buy' ? '买入指数' : '卖出指数'"
       width="500px"
+      class="stock-trade-modal"
     >
       <el-form ref="formRef" :model="form" label-position="top">
         <!-- 买入表单 -->
         <template v-if="tradeType === 'buy'">
+          <div class="trade-index-title">
+            <strong>
+              {{ selectedIndex?.indexName || selectedPosition?.indexName || form.indexName || '—' }}
+            </strong>
+            <span class="trade-index-code">
+              {{ selectedIndex?.indexCode || selectedPosition?.indexCode || form.indexCode }}
+            </span>
+          </div>
           <el-form-item
             label="买入金额（积分）"
             prop="amount"
@@ -277,21 +316,33 @@
                 <el-icon><Coin /></el-icon>
               </template>
             </el-input-number>
+            <div class="form-extra">
+              最小买入金额为100积分，剩余积分：{{ formatNumber(availablePoints) }}
+            </div>
           </el-form-item>
-          <div class="trade-info" v-if="selectedIndex">
-            <el-text type="info">
-              当前指数: {{ selectedIndex.indexName }} ({{ selectedIndex.indexCode }})
-            </el-text>
-            <br />
-            <el-text type="info">
-              最新点位: {{ parseNumericValue(selectedIndex.currentValue).toFixed(2) }}
-              （{{ parseNumericValue(selectedIndex.changePercent) >= 0 ? '+' : '' }}{{ parseNumericValue(selectedIndex.changePercent).toFixed(2) }}%）
+          <div class="trade-info" v-if="selectedIndex || selectedPosition">
+            <template v-if="selectedIndex">
+              <el-text type="info">
+                最新点位: {{ parseNumericValue(selectedIndex.currentValue).toFixed(2) }}
+                （{{ parseNumericValue(selectedIndex.changePercent) >= 0 ? '+' : '' }}{{ parseNumericValue(selectedIndex.changePercent).toFixed(2) }}%）
+              </el-text>
+              <br />
+            </template>
+            <el-text v-if="selectedPosition" type="info">
+              当前持仓: {{ formatNumber(selectedPosition.totalShares) }} 份 ·
+              可用 {{ formatNumber(selectedPosition.availableShares) }} 份
             </el-text>
           </div>
         </template>
 
         <!-- 卖出表单 -->
         <template v-else>
+          <div class="trade-index-title">
+            <strong>{{ selectedPosition?.indexName || '—' }}</strong>
+            <span v-if="selectedPosition?.indexCode" class="trade-index-code">
+              {{ selectedPosition.indexCode }}
+            </span>
+          </div>
           <el-form-item
             label="卖出份额"
             prop="shares"
@@ -306,6 +357,9 @@
               style="width: 100%;"
               placeholder="请输入卖出份额"
             />
+            <div v-if="selectedPosition" class="form-extra">
+              可用份额: {{ formatNumber(selectedPosition.availableShares) }}
+            </div>
           </el-form-item>
           <div class="trade-info" v-if="selectedPosition">
             <el-text type="info">
@@ -324,8 +378,8 @@
         </template>
       </el-form>
       <template #footer>
-        <el-button @click="handleCloseTradeModal">取消</el-button>
-        <el-button type="primary" @click="handleTradeSubmit">
+        <el-button :disabled="tradeSubmitting" @click="handleCloseTradeModal">取消</el-button>
+        <el-button type="primary" :loading="tradeSubmitting" :disabled="tradeSubmitting" @click="handleTradeSubmit">
           {{ tradeType === 'buy' ? '确认买入' : '确认卖出' }}
         </el-button>
       </template>
@@ -334,20 +388,38 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   TrendCharts,
-  InfoFilled,
   Refresh,
   ShoppingCart,
   Wallet,
   Clock,
   Coin,
-  ArrowUp,
-  ArrowDown,
 } from '@element-plus/icons-vue';
 import { stockApi } from '../api/stock';
+import { useUserStore } from '../stores/user';
+
+/** 买卖按钮点击间隔（毫秒） */
+const TRADE_CLICK_DEBOUNCE_MS = 500;
+
+/** 可交易指数代码（与后端一致） */
+const TRADABLE_INDEX_CODES = new Set([
+  'sh000001',
+  'sz399001',
+  'sz399006',
+  'sh000300',
+  'sh000016',
+]);
+
+const userStore = useUserStore();
+const transactionTableRef = ref(null);
+let transactionTableBodyEl = null;
+let onTransactionTableBodyScroll = null;
+const availablePoints = computed(
+  () => (userStore.userInfo?.points ?? 0) - (userStore.userInfo?.usedPoints ?? 0),
+);
 
 // 辅助函数：安全解析数值
 const parseNumericValue = (value) => {
@@ -378,6 +450,8 @@ const selectedIndex = ref(null);
 const selectedPosition = ref(null);
 const activeTab = ref('market');
 const formRef = ref(null);
+const tradeSubmitting = ref(false);
+const lastTradeClickAt = ref(0);
 
 const form = ref({
   indexCode: '',
@@ -415,19 +489,22 @@ const loadMarketIndices = async () => {
   }
 };
 
-// 加载持仓
+const getPositionByCode = (indexCode) =>
+  positions.value.find((p) => p.indexCode === indexCode);
+
+const isTradableIndex = (indexCode) =>
+  !!indexCode && TRADABLE_INDEX_CODES.has(indexCode);
+
+// 加载全部指数持仓
 const loadPositions = async () => {
   try {
-    const response = await stockApi.getPosition();
+    const response = await stockApi.getPositions();
     if (response.code === 0 && response.data) {
-      const data = response.data;
-      if (Array.isArray(data)) {
-        positions.value = data;
-      } else if (data.indexCode) {
-        positions.value = [data];
-      } else {
-        positions.value = [];
-      }
+      positions.value = response.data.filter(
+        (p) => p.indexCode && (p.totalShares || 0) > 0,
+      );
+    } else {
+      positions.value = [];
     }
   } catch (error) {
     console.error('加载持仓失败:', error);
@@ -450,8 +527,8 @@ const loadTransactions = async (page = 1) => {
   }
 };
 
-// 刷新所有数据
-const refreshData = async () => {
+// 加载所有数据（静默，不弹 toast）
+const loadAllData = async () => {
   refreshing.value = true;
   loading.value = true;
   await Promise.all([
@@ -461,6 +538,11 @@ const refreshData = async () => {
   ]);
   loading.value = false;
   refreshing.value = false;
+};
+
+// 手动刷新
+const refreshData = async () => {
+  await loadAllData();
   ElMessage.success('刷新成功');
 };
 
@@ -477,6 +559,13 @@ const handleOpenTradeModal = (type, index, position) => {
       amount: undefined,
       shares: undefined,
     };
+  } else if (type === 'buy' && position) {
+    form.value = {
+      indexCode: position.indexCode,
+      indexName: position.indexName,
+      amount: undefined,
+      shares: undefined,
+    };
   } else if (type === 'sell' && position) {
     form.value = {
       indexCode: position.indexCode,
@@ -487,6 +576,15 @@ const handleOpenTradeModal = (type, index, position) => {
   }
 
   tradeModalVisible.value = true;
+};
+
+const handleOpenTradeModalDebounced = (type, index, position) => {
+  const now = Date.now();
+  if (now - lastTradeClickAt.value < TRADE_CLICK_DEBOUNCE_MS) {
+    return;
+  }
+  lastTradeClickAt.value = now;
+  handleOpenTradeModal(type, index, position);
 };
 
 // 关闭交易弹窗
@@ -504,8 +602,12 @@ const handleCloseTradeModal = () => {
 
 // 提交交易
 const handleTradeSubmit = async () => {
+  if (tradeSubmitting.value) {
+    return;
+  }
   try {
     await formRef.value.validate();
+    tradeSubmitting.value = true;
 
     if (tradeType.value === 'buy') {
       const response = await stockApi.buyIndex({
@@ -516,9 +618,9 @@ const handleTradeSubmit = async () => {
       if (response.code === 0) {
         ElMessage.success(`买入成功！成交份额: ${formatNumber(response.data?.shares)}`);
         handleCloseTradeModal();
-        refreshData();
+        loadAllData();
       } else {
-        ElMessage.error(response.msg || '买入失败');
+        ElMessage.error(response.message || response.msg || '买入失败');
       }
     } else {
       const response = await stockApi.sellIndex({
@@ -529,396 +631,67 @@ const handleTradeSubmit = async () => {
       if (response.code === 0) {
         ElMessage.success('卖出成功！');
         handleCloseTradeModal();
-        refreshData();
+        loadAllData();
       } else {
-        ElMessage.error(response.msg || '卖出失败');
+        ElMessage.error(response.message || response.msg || '卖出失败');
       }
     }
   } catch (error) {
     console.error('交易失败:', error);
+  } finally {
+    tradeSubmitting.value = false;
   }
 };
 
+const teardownTransactionTableScrollSync = () => {
+  if (transactionTableBodyEl && onTransactionTableBodyScroll) {
+    transactionTableBodyEl.removeEventListener('scroll', onTransactionTableBodyScroll);
+  }
+  transactionTableBodyEl = null;
+  onTransactionTableBodyScroll = null;
+};
+
+const setupTransactionTableScrollSync = () => {
+  teardownTransactionTableScrollSync();
+  const tableRoot = transactionTableRef.value?.$el;
+  if (!tableRoot) return;
+
+  const bodyWrapper = tableRoot.querySelector('.el-table__body-wrapper');
+  const headerWrapper = tableRoot.querySelector('.el-table__header-wrapper');
+  if (!bodyWrapper || !headerWrapper) return;
+
+  onTransactionTableBodyScroll = () => {
+    headerWrapper.scrollLeft = bodyWrapper.scrollLeft;
+  };
+  transactionTableBodyEl = bodyWrapper;
+  bodyWrapper.addEventListener('scroll', onTransactionTableBodyScroll, { passive: true });
+};
+
+watch(activeTab, (tab) => {
+  if (tab === 'transactions') {
+    nextTick(setupTransactionTableScrollSync);
+  } else {
+    teardownTransactionTableScrollSync();
+  }
+});
+
+watch(transactions, () => {
+  if (activeTab.value === 'transactions') {
+    nextTick(setupTransactionTableScrollSync);
+  }
+});
+
 // 初始加载
 onMounted(() => {
-  refreshData();
+  loadAllData();
+  nextTick(setupTransactionTableScrollSync);
+});
+
+onBeforeUnmount(() => {
+  teardownTransactionTableScrollSync();
 });
 </script>
 
-<style scoped>
-/* ========== 容器 ========== */
-/* ========== 容器 ========== */
-.stock-market-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ========== 内容区 ========== */
-.stock-market-content {
-  flex: 1;
-  padding: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-/* ========== 工具栏 ========== */
-.toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-
-/* ========== 统计卡片 ========== */
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  padding: 20px 24px;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
-  border-left: 4px solid;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
-
-.stat-card.blue {
-  border-left-color: #409eff;
-}
-
-.stat-card.red {
-  border-left-color: #ff4d4f;
-}
-
-.stat-card.green {
-  border-left-color: #52c41a;
-}
-
-.stat-card.blue .stat-icon {
-  background: linear-gradient(135deg, #409eff 0%, #1677ff 100%);
-}
-
-.stat-card.red .stat-icon {
-  background: linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%);
-}
-
-.stat-card.green .stat-icon {
-  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 24px;
-  margin-right: 16px;
-  flex-shrink: 0;
-}
-
-.stat-content {
-  flex: 1;
-}
-
-.stat-title {
-  font-size: 13px;
-  color: #8c8c8c;
-  margin-bottom: 6px;
-  font-weight: 500;
-}
-
-.stat-value {
-  font-size: 26px;
-  font-weight: 700;
-  color: #1a1a1a;
-  letter-spacing: -0.5px;
-}
-
-.stat-card.red .stat-value {
-  color: #ff4d4f;
-}
-
-.stat-card.green .stat-value {
-  color: #52c41a;
-}
-
-/* ========== 市场行情卡片 ========== */
-.market-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
-  border: 1px solid transparent;
-}
-
-.market-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.market-card.up {
-  border-color: rgba(255, 77, 79, 0.2);
-}
-
-.market-card.down {
-  border-color: rgba(82, 196, 26, 0.2);
-}
-
-.market-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.market-info {
-  flex: 1;
-}
-
-.market-name {
-  font-size: 17px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 4px;
-}
-
-.market-code {
-  font-size: 12px;
-  color: #8c8c8c;
-  font-family: 'Monaco', 'Consolas', monospace;
-}
-
-.market-trend {
-  font-size: 24px;
-}
-
-.trend-up {
-  color: #ff4d4f;
-  animation: pulse-up 2s infinite;
-}
-
-.trend-down {
-  color: #52c41a;
-  animation: pulse-down 2s infinite;
-}
-
-@keyframes pulse-up {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-@keyframes pulse-down {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.market-value {
-  margin-bottom: 12px;
-}
-
-.current-price {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1a1a1a;
-  letter-spacing: -1px;
-}
-
-.market-change {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.change-amount,
-.change-percent {
-  font-size: 15px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-family: 'Monaco', 'Consolas', monospace;
-}
-
-.change-amount.up,
-.change-percent.up {
-  color: #ff4d4f;
-  background: rgba(255, 77, 79, 0.1);
-}
-
-.change-amount.down,
-.change-percent.down {
-  color: #52c41a;
-  background: rgba(82, 196, 26, 0.1);
-}
-
-.market-action {
-  display: flex;
-  justify-content: center;
-  padding-top: 16px;
-  border-top: 1px dashed #e8e8e8;
-}
-
-/* ========== 持仓卡片 ========== */
-.position-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
-  border: 1px solid transparent;
-}
-
-.position-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.position-card.up {
-  border-color: rgba(255, 77, 79, 0.15);
-}
-
-.position-card.down {
-  border-color: rgba(82, 196, 26, 0.15);
-}
-
-.position-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.position-info {
-  flex: 1;
-}
-
-.position-name {
-  font-size: 17px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 4px;
-}
-
-.position-code {
-  font-size: 12px;
-  color: #8c8c8c;
-  font-family: 'Monaco', 'Consolas', monospace;
-}
-
-.position-percent {
-  font-size: 15px;
-  font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-family: 'Monaco', 'Consolas', monospace;
-}
-
-.position-percent.up {
-  color: #ff4d4f;
-  background: rgba(255, 77, 79, 0.1);
-}
-
-.position-percent.down {
-  color: #52c41a;
-  background: rgba(82, 196, 26, 0.1);
-}
-
-.position-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.grid-item {
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 8px;
-}
-
-.grid-label {
-  font-size: 12px;
-  color: #8c8c8c;
-  margin-bottom: 6px;
-}
-
-.grid-value {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Monaco', 'Consolas', monospace;
-}
-
-.grid-value.highlight {
-  color: #409eff;
-}
-
-.grid-value.profit {
-  color: #ff4d4f;
-}
-
-.grid-value.loss {
-  color: #52c41a;
-}
-
-.position-actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px dashed #e8e8e8;
-}
-
-/* ========== 交易弹窗 ========== */
-.trade-info {
-  padding: 16px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
-  border-radius: 8px;
-  margin-top: 16px;
-}
-
-.trade-info .el-text {
-  line-height: 1.8;
-}
-
-/* ========== 交易记录表格 ========== */
-.transaction-table-wrapper {
-  max-width: 680px;
-  overflow-x: auto;
-}
-
-/* ========== 响应式 ========== */
-@media (max-width: 768px) {
-  .stats-row {
-    grid-template-columns: 1fr;
-  }
-
-  .stat-card {
-    padding: 16px 20px;
-  }
-
-  .stat-value {
-    font-size: 22px;
-  }
-
-  .current-price {
-    font-size: 28px;
-  }
-}
+<style scoped lang="less">
+@import '../styles/stock-market.less';
 </style>

@@ -63,12 +63,20 @@
             </div>
 
             <div class="user-follow-stats">
-              <div class="follow-stat-item">
+              <div
+                class="follow-stat-item"
+                :class="{ 'follow-stat-clickable': isSelf }"
+                @click="openFollowList('following')"
+              >
                 <span class="follow-stat-num">{{ displayUser.followingCount ?? "-" }}</span>
                 <span class="follow-stat-label">关注</span>
               </div>
               <div class="follow-stat-divider" />
-              <div class="follow-stat-item">
+              <div
+                class="follow-stat-item"
+                :class="{ 'follow-stat-clickable': isSelf }"
+                @click="openFollowList('followers')"
+              >
                 <span class="follow-stat-num">{{ displayUser.followerCount ?? "-" }}</span>
                 <span class="follow-stat-label">粉丝</span>
               </div>
@@ -134,6 +142,73 @@
       </div>
     </template>
   </el-dialog>
+
+  <el-dialog
+    v-model="followListVisible"
+    :title="followListType === 'following' ? '我的关注' : '我的粉丝'"
+    width="360px"
+    align-center
+    append-to-body
+    destroy-on-close
+    class="follow-list-dialog"
+  >
+    <div v-loading="followListLoading" class="follow-list-body">
+      <el-empty
+        v-if="!followListLoading && followListData.length === 0"
+        :description="followListType === 'following' ? '还没有关注任何人' : '还没有粉丝'"
+      />
+      <div v-else class="follow-list-container">
+        <div v-for="item in followListData" :key="item.userId" class="follow-list-item">
+          <div class="follow-list-avatar">
+            <img
+              :src="item.userAvatar || '/default-avatar.png'"
+              class="follow-list-avatar-img"
+              alt=""
+              @error="onFollowAvatarError"
+            />
+            <img
+              v-if="item.avatarFramerUrl"
+              :src="item.avatarFramerUrl"
+              class="follow-list-avatar-frame"
+              alt=""
+            />
+          </div>
+          <div class="follow-list-info">
+            <div class="follow-list-name">
+              {{ item.userName }}
+              <span v-if="item.isMutual" class="mutual-badge">互相关注</span>
+            </div>
+            <div v-if="item.userProfile" class="follow-list-profile">{{ item.userProfile }}</div>
+          </div>
+          <div v-if="followListType === 'following'" class="follow-list-action">
+            <el-button
+              size="small"
+              round
+              class="unfollow-btn"
+              :loading="followListActionLoadingId === item.userId"
+              @click="handleUnfollow(item)"
+            >
+              取消关注
+            </el-button>
+          </div>
+          <div
+            v-else-if="followListType === 'followers' && !item.isMutual"
+            class="follow-list-action"
+          >
+            <el-button
+              size="small"
+              round
+              class="follow-back-btn"
+              :loading="followListActionLoadingId === item.userId"
+              @click="handleFollowBack(item)"
+            >
+              回关
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -165,13 +240,24 @@ const loading = ref(false);
 const followLoading = ref(false);
 const isFollowing = ref(false);
 const followHover = ref(false);
+const followListVisible = ref(false);
+const followListType = ref("following");
+const followListLoading = ref(false);
+const followListData = ref([]);
+const followListActionLoadingId = ref(null);
 
 const dialogWidth = computed(() => (displayUser.value?.momentsBgUrl ? "680px" : "420px"));
 
 const isSelf = computed(() => {
-  const cur = userStore.userInfo?.id ?? userStore.userInfo?.userId;
-  const target = displayUser.value?.id ?? displayUser.value?.userId;
-  return cur != null && target != null && String(cur) === String(target);
+  const cur = userStore.userInfo;
+  const target = displayUser.value;
+  if (!cur || !target) return false;
+  const curId = cur.id ?? cur.userId;
+  const targetId = target.id ?? target.userId;
+  if (curId != null && targetId != null && String(curId) === String(targetId)) {
+    return true;
+  }
+  return !!(cur.userName && target.userName && cur.userName === target.userName);
 });
 
 const isAdminViewer = computed(() => userStore.userRole === "admin");
@@ -210,6 +296,90 @@ const statusText = computed(() => {
 
 function onAvatarError(e) {
   e.target.src = "/default-avatar.png";
+}
+
+function onFollowAvatarError(e) {
+  e.target.src = "/default-avatar.png";
+}
+
+async function handleFollowBack(item) {
+  if (!item?.userId || item.isMutual) return;
+  followListActionLoadingId.value = item.userId;
+  try {
+    const res = await followApi.toggleFollow(String(item.userId));
+    const nowFollowing = !!(res?.data ?? res);
+    if (!nowFollowing) return;
+
+    const idx = followListData.value.findIndex((i) => i.userId === item.userId);
+    if (idx >= 0) {
+      followListData.value[idx] = { ...followListData.value[idx], isMutual: true };
+    }
+    if (displayUser.value) {
+      displayUser.value = {
+        ...displayUser.value,
+        followingCount: Math.max(
+          0,
+          (Number(displayUser.value.followingCount) || 0) + 1,
+        ),
+      };
+    }
+    ElMessage.success("关注成功");
+  } catch (err) {
+    ElMessage.error(err?.message || "回关失败");
+  } finally {
+    followListActionLoadingId.value = null;
+  }
+}
+
+async function handleUnfollow(item) {
+  if (!item?.userId) return;
+  followListActionLoadingId.value = item.userId;
+  try {
+    const res = await followApi.toggleFollow(String(item.userId));
+    const stillFollowing = !!(res?.data ?? res);
+    if (stillFollowing) return;
+
+    followListData.value = followListData.value.filter((i) => i.userId !== item.userId);
+    if (displayUser.value) {
+      displayUser.value = {
+        ...displayUser.value,
+        followingCount: Math.max(
+          0,
+          (Number(displayUser.value.followingCount) || 0) - 1,
+        ),
+      };
+    }
+    ElMessage.success("已取消关注");
+  } catch (err) {
+    ElMessage.error(err?.message || "取消关注失败");
+  } finally {
+    followListActionLoadingId.value = null;
+  }
+}
+
+async function openFollowList(type) {
+  if (!isSelf.value) {
+    ElMessage.info("暂时只支持查看自己的关注/粉丝列表");
+    return;
+  }
+  followListType.value = type;
+  followListVisible.value = true;
+  followListLoading.value = true;
+  followListData.value = [];
+  followListActionLoadingId.value = null;
+  try {
+    const fn =
+      type === "following" ? followApi.listMyFollowing : followApi.listMyFollowers;
+    const res = await fn({ current: 1, pageSize: 50 });
+    if (res?.code === 0 && res.data?.records) {
+      followListData.value = res.data.records;
+    }
+  } catch (err) {
+    console.error("获取关注/粉丝列表失败:", err);
+    ElMessage.error("获取列表失败");
+  } finally {
+    followListLoading.value = false;
+  }
 }
 
 function normalizeSeedUser(user) {
@@ -479,6 +649,20 @@ watch(
   flex-direction: column;
   align-items: center;
   padding: 0 14px;
+  border-radius: 8px;
+}
+
+.follow-stat-clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.follow-stat-clickable:hover {
+  background: #f0f0f0;
+}
+
+.follow-stat-clickable:hover .follow-stat-num {
+  color: #667eea;
 }
 
 .follow-stat-num {
@@ -614,5 +798,116 @@ watch(
 .profile-btn {
   background: linear-gradient(135deg, #ff8c00, #ff6b00) !important;
   border: none !important;
+}
+
+.follow-list-body {
+  min-height: 120px;
+}
+
+.follow-list-container {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.follow-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid #f5f5f5;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.follow-list-item:last-child {
+  border-bottom: none;
+}
+
+.follow-list-item:hover {
+  background: #fafafa;
+}
+
+.follow-list-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+}
+
+.follow-list-avatar-img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.follow-list-avatar-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 170%;
+  height: 170%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.follow-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.follow-list-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1c1e;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mutual-badge {
+  font-size: 11px;
+  font-weight: 400;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+.follow-list-profile {
+  font-size: 12px;
+  color: #aaa;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.follow-list-action {
+  flex-shrink: 0;
+}
+
+.follow-back-btn {
+  background: linear-gradient(135deg, #ff8c00, #ff6b00) !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: 600;
+  padding: 0 14px !important;
+}
+
+.unfollow-btn {
+  background: #f5f5f5 !important;
+  border: 1px solid #e0e0e0 !important;
+  color: #888 !important;
+  font-weight: 500;
+  padding: 0 10px !important;
+}
+
+.unfollow-btn:hover {
+  background: #fff0f0 !important;
+  border-color: #ffb3b3 !important;
+  color: #ff4d4f !important;
 }
 </style>
