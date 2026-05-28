@@ -24,6 +24,7 @@
       :class="{
         'points-play-content--farm': activeMenu === 'farm',
         'points-play-content--stock': activeMenu === 'stock',
+        'points-play-content--fight': isPetFight,
       }"
     >
       <router-view />
@@ -32,7 +33,7 @@
 </template>
 
 <script setup>
-import { ref, markRaw, watch } from 'vue';
+import { computed, markRaw, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { Aim, TrendCharts, Trophy, Place } from '@element-plus/icons-vue';
 
@@ -48,6 +49,7 @@ const tabs = [
 
 // 根据当前路由确定激活的菜单
 const activeMenu = ref('stock');
+const isPetFight = computed(() => route.name === 'PetFight');
 
 // 监听路由变化更新激活状态
 watch(() => route.path, (newPath) => {

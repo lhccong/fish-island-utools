@@ -582,12 +582,14 @@ onMounted(async () => {
 <style scoped>
 .fight-container {
   position: relative;
-  min-height: 100%;
+  box-sizing: border-box;
   margin: 0;
-  padding: 16px;
-  overflow: hidden;
+  padding: 12px 16px 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
   border-radius: 16px;
   background: linear-gradient(180deg, #fff9f5 0%, #fff0e6 30%, #ffe8d6 70%, #ffd4a8 100%);
+  -webkit-overflow-scrolling: touch;
 }
 
 .fight-container::before {
@@ -801,9 +803,9 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 34px 56px 54px;
+  padding: 34px 56px 72px;
   margin-bottom: 16px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .battle-arena::after {
@@ -1180,7 +1182,7 @@ onMounted(async () => {
 
   .battle-arena {
     min-height: 360px;
-    padding: 18px 10px 48px;
+    padding: 18px 10px 64px;
   }
 
   .pet-area {

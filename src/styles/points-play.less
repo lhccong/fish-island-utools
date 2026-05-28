@@ -176,6 +176,35 @@
   max-width: 100%;
 }
 
+/* 宠物对战：内容区内部滚动，避免小窗口裁切上下区域 */
+.points-play-content--fight {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+
+  > :deep(.fight-container) {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: block;
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border-radius: 3px;
+      background: rgba(255, 167, 104, 0.45);
+    }
+  }
+}
+
 @media (max-width: 720px) {
   .tab-item__label {
     display: none;
