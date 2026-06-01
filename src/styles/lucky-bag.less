@@ -1,0 +1,625 @@
+// 福袋主题（金橙，尺寸对齐红包 red-packet-card 220px）
+@lucky-bag-primary: #d46b08;
+@lucky-bag-primary-light: #fa8c16;
+@lucky-bag-primary-dark: #ad4e00;
+@lucky-bag-gradient: linear-gradient(135deg, @lucky-bag-primary 0%, @lucky-bag-primary-light 100%);
+@lucky-bag-gradient-finished: linear-gradient(135deg, #ad4e00 0%, #d48806 100%);
+
+// —— 聊天消息内（对齐 frontend LuckyBagMessage） ——
+.lucky-bag-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.lucky-bag-prefix {
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  color: var(--text-color, #333);
+}
+
+.lucky-bag-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  &:hover {
+    background: #ffe7ba;
+    transform: scale(1.02);
+  }
+}
+
+.lucky-bag-trigger-image {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.lucky-bag-trigger-text {
+  color: @lucky-bag-primary;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+// —— 详情 / 记录弹窗 ——
+.lucky-bag-detail-dialog {
+  .el-dialog__header {
+    margin-right: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color, #f0f0f0);
+  }
+
+  .el-dialog__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: @lucky-bag-primary;
+  }
+
+  .el-dialog__body {
+    padding: 12px 16px 16px;
+  }
+
+  .el-button--primary {
+    --el-button-bg-color: @lucky-bag-primary;
+    --el-button-border-color: @lucky-bag-primary;
+    --el-button-hover-bg-color: @lucky-bag-primary-light;
+    --el-button-hover-border-color: @lucky-bag-primary-light;
+  }
+}
+
+.lucky-bag-records-dialog {
+  .el-dialog__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: @lucky-bag-primary;
+  }
+
+  .el-dialog__body {
+    padding: 8px 12px 12px;
+  }
+}
+
+.lucky-bag-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lucky-bag-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+}
+
+.lucky-bag-modal-image {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.lucky-bag-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.lucky-bag-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: @lucky-bag-primary;
+  margin-bottom: 2px;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.lucky-bag-creator {
+  font-size: 12px;
+  color: var(--sub-text-color, #8c8c8c);
+}
+
+.lucky-bag-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.lucky-bag-meta-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--background-color, #fafafa);
+  border: 1px solid var(--border-color, #f0f0f0);
+
+  .meta-label {
+    display: block;
+    font-size: 11px;
+    color: var(--sub-text-color, #8c8c8c);
+  }
+
+  .meta-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: @lucky-bag-primary;
+  }
+}
+
+.lucky-bag-draw-time {
+  text-align: center;
+  font-size: 12px;
+  color: #ad6800;
+  background: #fff7e6;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.lucky-bag-modal-content .lucky-bag-status {
+  font-size: 12px;
+  color: var(--sub-text-color, #8c8c8c);
+  justify-content: center;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  max-width: none;
+}
+
+.joined-tag,
+.not-joined-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.joined-tag {
+  color: #389e0d;
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+}
+
+.not-joined-tag {
+  color: #8c8c8c;
+  background: #fafafa;
+  border: 1px solid #d9d9d9;
+}
+
+.lucky-bag-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.join-tip {
+  text-align: center;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+
+  &_success {
+    color: #389e0d;
+    background: #f6ffed;
+    border: 1px solid #b7eb8f;
+  }
+
+  &_error {
+    color: #cf1322;
+    background: #fff2f0;
+    border: 1px solid #ffccc7;
+  }
+}
+
+.lucky-bag-records {
+  max-height: 280px;
+  overflow-y: auto;
+
+  .record-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &.is-top .amount {
+      color: @lucky-bag-primary;
+      font-weight: 700;
+    }
+  }
+
+  .record-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #eee;
+  }
+
+  .user-info {
+    flex: 1;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .user-name {
+    font-size: 13px;
+    color: var(--text-color, #333);
+  }
+
+  .win-time {
+    font-size: 11px;
+    color: #999;
+  }
+
+  .amount {
+    font-size: 13px;
+    color: @lucky-bag-primary;
+    font-weight: 600;
+  }
+
+  .empty-records {
+    text-align: center;
+    padding: 24px 0;
+    color: #999;
+    font-size: 13px;
+  }
+}
+
+// —— 聊天室入口（对齐 frontend .luckyBagEntry） ——
+.lucky-bag-entry {
+  position: absolute;
+  top: 72px;
+  left: 12px;
+  z-index: 100;
+  cursor: pointer;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: scale(1.08);
+  }
+}
+
+.lucky-bag-entry-image {
+  display: block;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.15));
+}
+
+.lucky-bag-entry-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(255, 77, 79, 0.4);
+}
+
+// —— 进行中列表 ——
+.lucky-bag-list-dialog {
+  .el-dialog__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: @lucky-bag-primary;
+  }
+
+  .el-dialog__body {
+    padding: 4px 12px 12px;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+}
+
+.lucky-bag-list-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--sub-text-color, #999);
+  font-size: 13px;
+}
+
+.lucky-bag-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lucky-bag-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: #ffe7ba;
+  }
+}
+
+.lucky-bag-list-image {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.lucky-bag-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.lucky-bag-list-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-bottom: 2px;
+}
+
+.lucky-bag-list-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: @lucky-bag-primary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.lucky-bag-joined-tag,
+.lucky-bag-not-joined-tag {
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.lucky-bag-joined-tag {
+  color: #389e0d;
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+}
+
+.lucky-bag-not-joined-tag {
+  color: #8c8c8c;
+  background: #fafafa;
+  border: 1px solid #d9d9d9;
+}
+
+.lucky-bag-list-meta {
+  font-size: 11px;
+  color: var(--sub-text-color, #8c8c8c);
+  line-height: 1.35;
+}
+
+// —— 发送福袋（对齐红包弹窗 380px） ——
+.lucky-bag-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.lucky-bag-dialog {
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg, #fff);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: lucky-bag-dialog-in 0.3s ease-out;
+}
+
+@keyframes lucky-bag-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lucky-bag-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: @lucky-bag-gradient;
+  color: #fff;
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .lucky-bag-dialog-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+  }
+
+  .header-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .close-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+.lucky-bag-dialog-body {
+  padding: 16px;
+  overflow-y: auto;
+
+  .type-selector {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .type-card {
+    background: var(--hover-bg, #f5f5f5);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+
+    &:hover {
+      background: var(--background-color, #fafafa);
+    }
+
+    &.active {
+      background: var(--background-color, #fff);
+      border-color: @lucky-bag-primary;
+    }
+  }
+
+  .type-name {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-color, #333);
+    margin-bottom: 2px;
+  }
+
+  .type-desc {
+    display: block;
+    font-size: 11px;
+    color: var(--sub-text-color, #8c8c8c);
+  }
+
+  .form-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .form-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .item-label {
+    width: 56px;
+    font-size: 13px;
+    color: var(--sub-text-color, #8c8c8c);
+    flex-shrink: 0;
+  }
+
+  .form-item-control {
+    flex: 1;
+    min-width: 0;
+
+    > .el-input {
+      width: 100% !important;
+    }
+
+    > .el-input .el-input__wrapper {
+      padding: 0 8px;
+    }
+
+    .el-input__inner {
+      height: 32px;
+      line-height: 32px;
+      text-align: left;
+    }
+  }
+}
+
+.lucky-bag-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--hover-bg, #f5f5f5);
+  border-top: 1px solid var(--border-color, #f0f0f0);
+
+  .cancel-btn {
+    padding: 8px 16px;
+    font-weight: 500;
+    border: none;
+    background: var(--hover-bg, #f5f5f5);
+    color: var(--sub-text-color, #8c8c8c);
+    font-size: 13px;
+
+    &:hover {
+      background: var(--background-color, #fafafa);
+      color: var(--text-color, #333);
+    }
+  }
+
+  .send-btn {
+    padding: 8px 16px;
+    font-weight: 500;
+    background: @lucky-bag-gradient;
+    border: none;
+    color: #fff;
+    font-size: 13px;
+
+    &:hover {
+      background: linear-gradient(135deg, @lucky-bag-primary-light 0%, #ffc069 100%);
+    }
+  }
+}

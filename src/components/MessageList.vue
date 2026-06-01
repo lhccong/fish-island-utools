@@ -143,6 +143,12 @@
                     </div>
                   </div>
                 </div>
+                <div class="message-text" v-else-if="getLuckyBagInline(item.content)">
+                  <LuckyBagMessage
+                    :lucky-bag-id="getLuckyBagInline(item.content).luckyBagId"
+                    :prefix="getLuckyBagInline(item.content).prefix"
+                  />
+                </div>
                 <div class="message-text" v-else-if="isRedPacketMessage(item.content)">
                   <div class="red-packet-card" :class="{
                     finished: isRedPacketFinished(item),
@@ -293,6 +299,8 @@ import UserContextMenu from "./UserContextMenu.vue";
 import MsgContextMenu from "./MsgContextMenu.vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import RedPacketModal from "./RedPacketModal.vue";
+import LuckyBagMessage from "./LuckyBagMessage.vue";
+import { isLuckyBagMessage, parseLuckyBagInline } from "../utils/luckyBag";
 import { createImagePreviewWindow } from "../utils/imagePreview";
 import wsManager from "../utils/websocket";
 
@@ -491,6 +499,7 @@ const groupedMessages = computed(() => {
       buffer.length > 0 &&
       buffer[0].content === message.content &&
       !isRedPacketMessage(message.content) &&
+      !isLuckyBagMessage(message.content) &&
       !isWeatherMessage(message.content) &&
       !isMusicMessage(message.content)
     ) {
@@ -819,6 +828,8 @@ const getWeatherIcon = (code) => {
 };
 
 // 判断是否为红包消息
+const getLuckyBagInline = (content) => parseLuckyBagInline(content);
+
 const isRedPacketMessage = (content) => {
   if (!content || typeof content !== "string") {
     return false;
@@ -1434,6 +1445,7 @@ function onMsgContextMenu(e, item) {
   // 判断类型
   if (
     isRedPacketMessage(item.content) ||
+    isLuckyBagMessage(item.content) ||
     isWeatherMessage(item.content) ||
     isMusicMessage(item.content)
   ) {

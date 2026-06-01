@@ -29,6 +29,7 @@
 <!--      <i class="fas fa-image icon" @click="openImagePicker" title="图片"></i>-->
       <!-- 红包图标 -->
       <i class="fas fa-gift icon" @click="openRedPacketDialog" title="红包"></i>
+      <i class="fas fa-bag-shopping icon icon--lucky-bag" @click="openLuckyBagDialog" title="发福袋"></i>
 <!--       弹幕图标 -->
 <!--      <i class="fas fa-comment-dots icon" @click="openDanmakuDialog" title="弹幕"></i>-->
 <!--       小尾巴图标 -->
@@ -80,6 +81,7 @@
     </div>
     <RedPacketDialog :visible="showRedPacketDialog" :online-users="onlineUsers" @close="showRedPacketDialog = false"
       @send="handleRedPacketSend" />
+    <LuckyBagDialog :visible="showLuckyBagDialog" @close="showLuckyBagDialog = false" @sent="handleLuckyBagSent" />
     <DanmakuDialog :visible="showDanmakuDialog" @close="showDanmakuDialog = false" @send="handleDanmakuSend" />
     <SignatureDialog :visible="showSignatureDialog" :default-signature="signature" @close="showSignatureDialog = false"
       @save="handleSignatureSave" />
@@ -99,6 +101,7 @@
   } from "vue";
   import EmojiPicker from "./EmojiPicker.vue";
   import RedPacketDialog from "./RedPacketDialog.vue";
+  import LuckyBagDialog from "./LuckyBagDialog.vue";
   import DanmakuDialog from "./DanmakuDialog.vue";
   import SignatureDialog from "./SignatureDialog.vue";
   import BellDialog from "./BellDialog.vue";
@@ -118,6 +121,7 @@
   const message = ref("");
   const showEmojiPicker = ref(false);
   const showRedPacketDialog = ref(false);
+  const showLuckyBagDialog = ref(false);
   const userStore = useUserStore();
   const showMentionList = ref(false);
   const mentionStartIndex = ref(-1);
@@ -134,6 +138,7 @@
     "select-emoji",
     "select-image",
     "send-red-packet",
+    "send-lucky-bag",
   ]);
 
   const textareaRef = ref(null);
@@ -653,6 +658,15 @@
     showRedPacketDialog.value = false;
   };
 
+  const openLuckyBagDialog = () => {
+    showLuckyBagDialog.value = true;
+  };
+
+  const handleLuckyBagSent = (data) => {
+    emit("send-lucky-bag", data);
+    showLuckyBagDialog.value = false;
+  };
+
   const openDanmakuDialog = () => {
     showDanmakuDialog.value = true;
   };
@@ -771,6 +785,10 @@
 
   .input-icons .icon:hover {
     color: var(--primary-color);
+  }
+
+  .input-icons .icon--lucky-bag:hover {
+    color: #d46b08;
   }
 
   .room-chat-input-container textarea {

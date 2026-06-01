@@ -88,10 +88,10 @@
               <button
                 type="button"
                 class="farm-deco farm-deco-mail"
-                :aria-label="`谁偷了我的菜，${stolenRecords.length} 条记录`"
+                :aria-label="`谁偷了我的菜，${unreadStolenCount} 条未读`"
                 @click="openStolenModal"
               >
-                <el-badge :value="stolenRecords.length" :hidden="stolenRecords.length === 0" :max="99">
+                <el-badge :value="unreadStolenCount" :hidden="unreadStolenCount === 0" :max="99">
                   <span class="farm-deco-mail-icon">
                     <el-icon><Message /></el-icon>
                   </span>
@@ -295,6 +295,8 @@
       :my-avatar="farmUser?.userAvatar ?? userStore.userAvatarURL"
       @close="closeFriendsModal"
       @refresh-stolen="loadStolenRecords"
+      :mark-all-stolen-read-loading="markAllStolenReadLoading"
+      @mark-all-stolen-read="handleMarkAllStolenRead"
       :visit-loading-id="visitLoadingId"
       @visit-friend="handleVisitFriend"
     />
@@ -420,6 +422,7 @@ import {
   canStealOnFriendLand,
   isFriendLandPlot,
   sumStealCoinGained,
+  isFarmStealRecordUnread,
 } from "../utils/farmUtils";
 import "../styles/farm/index.less";
 import "../styles/farm/utools-overrides.less";
@@ -457,6 +460,7 @@ const friendsModalOpen = ref(false);
 const friendsInitialTab = ref("play");
 const stolenRecords = ref([]);
 const stolenLoading = ref(false);
+const markAllStolenReadLoading = ref(false);
 const selectedLandIds = ref([]);
 const plantAnchorLandId = ref(null);
 const selectedCropId = ref(null);
@@ -493,6 +497,10 @@ const cropMap = computed(() => {
 
 const matureLands = computed(() =>
   lands.value.filter((l) => isLandMature(l, now.value) && l.id != null && isLandUnlocked(l)),
+);
+
+const unreadStolenCount = computed(() =>
+  stolenRecords.value.filter(isFarmStealRecordUnread).length,
 );
 
 const stealableLands = computed(() =>
@@ -640,6 +648,27 @@ async function loadStolenRecords() {
     console.error(e);
   } finally {
     stolenLoading.value = false;
+  }
+}
+
+async function handleMarkAllStolenRead() {
+  if (unreadStolenCount.value === 0) {
+    ElMessage.info("没有未读记录");
+    return;
+  }
+  markAllStolenReadLoading.value = true;
+  try {
+    const res = await farmApi.markAllStolenRecordsAsRead();
+    if (res?.code === 0) {
+      ElMessage.success("已全部标记为已读");
+      await loadStolenRecords();
+    } else {
+      ElMessage.error(res?.message || res?.msg || "标记已读失败");
+    }
+  } catch {
+    ElMessage.error("标记已读失败");
+  } finally {
+    markAllStolenReadLoading.value = false;
   }
 }
 

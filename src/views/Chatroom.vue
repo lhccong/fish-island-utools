@@ -12,8 +12,13 @@
         @send-same-message="handleSendSameMessage" @quote="handleQuote" @add-emoji="handleAddEmoji"
         @update-messages="handleUpdateMessages" />
       <!-- 消息输入组件 -->
+      <div v-if="activeLuckyBags.length > 0" class="lucky-bag-entry" title="查看进行中的福袋" @click="luckyBagListOpen = true">
+        <img :src="LUCKY_BAG_IMAGE" alt="福袋" class="lucky-bag-entry-image" />
+        <span class="lucky-bag-entry-badge">{{ activeLuckyBags.length }}</span>
+      </div>
       <RoomChatInput ref="chatInputRef" :online-users="onlineUsers" @send-message="handleSendMessage"
-        @select-emoji="handleSelectEmoji" @select-image="handleSelectImage" @send-red-packet="handleSendRedPacket" />
+        @select-emoji="handleSelectEmoji" @select-image="handleSelectImage" @send-red-packet="handleSendRedPacket"
+        @send-lucky-bag="handleLuckyBagSent" />
     </div>
     <!-- 侧边栏切换按钮 -->
     <div
@@ -28,6 +33,48 @@
       <!-- 侧边栏组件 -->
       <Sidebar :online-users="onlineUsers" :show-avatars="showAvatars" />
     </div>
+
+    <el-dialog
+      v-model="luckyBagListOpen"
+      :title="`进行中的福袋 (${activeLuckyBags.length})`"
+      width="380px"
+      class="lucky-bag-list-dialog"
+      destroy-on-close
+      align-center
+    >
+      <div v-if="activeLuckyBags.length === 0" class="lucky-bag-list-empty">暂无进行中的福袋</div>
+      <div v-else class="lucky-bag-list-items">
+        <div
+          v-for="bag in activeLuckyBags"
+          :key="bag.id"
+          class="lucky-bag-list-item"
+          @click="openLuckyBagFromList(bag.id)"
+        >
+          <img :src="LUCKY_BAG_IMAGE" alt="福袋" class="lucky-bag-list-image" />
+          <div class="lucky-bag-list-info">
+            <div class="lucky-bag-list-name-row">
+              <span class="lucky-bag-list-name">{{ bag.name || "福袋" }}</span>
+              <span :class="bag.joined ? 'lucky-bag-joined-tag' : 'lucky-bag-not-joined-tag'">
+                {{ bag.joined ? "已参与" : "未参与" }}
+              </span>
+            </div>
+            <div class="lucky-bag-list-meta">
+              {{ bag.totalAmount }} 积分 · {{ bag.winnerCount }} 人中奖 ·
+              {{ bag.participantCount ?? 0 }} 人已参与
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
+    <LuckyBagMessage
+      v-if="selectedLuckyBagId"
+      :key="selectedLuckyBagId"
+      :lucky-bag-id="selectedLuckyBagId"
+      initial-open
+      @detail-close="selectedLuckyBagId = null"
+      @joined="fetchActiveLuckyBags"
+    />
   </div>
 </template>
 
@@ -45,6 +92,10 @@ import { userApi } from "../api/user";
 import { ElMessage } from "element-plus";
 import { ArrowLeft, ArrowRight } from "@element-plus/icons-vue";
 import { BASE_URL } from "../api/config";
+import { luckyBagApi } from "../api/luckyBag";
+import LuckyBagMessage from "../components/LuckyBagMessage.vue";
+import { LUCKY_BAG_IMAGE } from "../utils/luckyBag";
+import "../styles/lucky-bag.less";
 
 const chatInputRef = ref(null);
 const userStore = useUserStore();
@@ -70,7 +121,12 @@ const showChatHeader = ref(true);
 const isChatroomFullscreen = ref(false);
 const sidebarStateBeforeFullscreen = ref(true);
 
-const bells = ref([])
+const bells = ref([]);
+
+const activeLuckyBags = ref([]);
+const luckyBagListOpen = ref(false);
+const selectedLuckyBagId = ref(null);
+let luckyBagPollTimer = null;
 
 const DEFAULT_MESSAGE_PAGE_SIZE = 20;
 
@@ -1036,6 +1092,29 @@ const handleSelectImage = () => {
   console.log("选择图片");
 };
 
+async function fetchActiveLuckyBags() {
+  try {
+    const res = await luckyBagApi.getActive();
+    if (res?.code === 0 && res.data) {
+      activeLuckyBags.value = res.data;
+    } else {
+      activeLuckyBags.value = [];
+    }
+  } catch (e) {
+    console.error("获取活跃福袋失败:", e);
+    activeLuckyBags.value = [];
+  }
+}
+
+function handleLuckyBagSent() {
+  fetchActiveLuckyBags();
+}
+
+function openLuckyBagFromList(bagId) {
+  selectedLuckyBagId.value = bagId;
+  luckyBagListOpen.value = false;
+}
+
 // 处理发送红包
 const handleSendRedPacket = async (redPacketData) => {
   try {
@@ -1681,6 +1760,9 @@ onMounted(() => {
   fetchOnlineUsers();
   onlineUsersPollingTimer = setInterval(fetchOnlineUsers, 30000);
 
+  fetchActiveLuckyBags();
+  luckyBagPollTimer = setInterval(fetchActiveLuckyBags, 30000);
+
   connectWebSocket();
   loadMessages();
   // 设置输入框焦点
@@ -1703,6 +1785,10 @@ onUnmounted(() => {
   if (onlineUsersPollingTimer) {
     clearInterval(onlineUsersPollingTimer);
     onlineUsersPollingTimer = null;
+  }
+  if (luckyBagPollTimer) {
+    clearInterval(luckyBagPollTimer);
+    luckyBagPollTimer = null;
   }
   // 移除事件监听
   window.removeEventListener("fishpi:account-switched", handleAccountSwitch);

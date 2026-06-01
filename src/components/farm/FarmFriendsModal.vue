@@ -23,8 +23,8 @@
           @click="switchTab(tab.key)"
         >
           {{ tab.label }}
-          <span v-if="tab.key === 'visitor' && stolenCount > 0" class="farm-friends-tab-badge">
-            {{ stolenCount }}
+          <span v-if="tab.key === 'visitor' && unreadStolenCount > 0" class="farm-friends-tab-badge">
+            {{ unreadStolenCount }}
           </span>
         </button>
       </div>
@@ -35,7 +35,16 @@
             <el-icon><Message /></el-icon>
           </span>
           <span class="farm-visitor-stolen-title">谁偷了我的菜</span>
-          <span v-if="stolenCount > 0" class="farm-visitor-stolen-count">{{ stolenCount }}</span>
+          <span v-if="unreadStolenCount > 0" class="farm-visitor-stolen-count">{{ unreadStolenCount }}</span>
+          <button
+            v-if="unreadStolenCount > 0"
+            type="button"
+            class="farm-visitor-stolen-read-all"
+            :disabled="markAllStolenReadLoading"
+            @click="emit('mark-all-stolen-read')"
+          >
+            {{ markAllStolenReadLoading ? "处理中..." : "全部已读" }}
+          </button>
         </div>
         <div v-loading="stolenLoading" class="farm-visitor-stolen-list-wrap">
           <div
@@ -49,6 +58,7 @@
               v-for="record in stolenRecords"
               :key="record.id ?? `${record.stealerId}-${record.stolenTime}`"
               class="farm-visitor-stolen-item"
+              :class="{ 'is-unread': isFarmStealRecordUnread(record) }"
             >
               <img
                 class="farm-friend-avatar"
@@ -179,6 +189,7 @@ import { farmApi } from "../../api/farm";
 import {
   formatStolenTime,
   formatStealCooldown,
+  isFarmStealRecordUnread,
   normalizeFarmFriend,
   getFriendUserId,
   unwrapFarmFriendList,
@@ -193,10 +204,11 @@ const props = defineProps({
   initialTab: { type: String, default: "play" },
   stolenRecords: { type: Array, default: () => [] },
   stolenLoading: { type: Boolean, default: false },
+  markAllStolenReadLoading: { type: Boolean, default: false },
   visitLoadingId: { type: String, default: null },
 });
 
-const emit = defineEmits(["close", "refresh-stolen", "visit-friend"]);
+const emit = defineEmits(["close", "refresh-stolen", "mark-all-stolen-read", "visit-friend"]);
 
 const tabs = [
   { key: "play", label: "同玩好友" },
@@ -221,7 +233,9 @@ const searchKeyword = ref("");
 const sortKey = ref("default");
 const sortMenuOpen = ref(false);
 
-const stolenCount = computed(() => props.stolenRecords.length);
+const unreadStolenCount = computed(() =>
+  props.stolenRecords.filter(isFarmStealRecordUnread).length,
+);
 
 const sortLabel = computed(
   () => sortOptions.find((o) => o.key === sortKey.value)?.label ?? "默认排序",

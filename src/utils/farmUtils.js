@@ -267,3 +267,6 @@ export const formatStolenTime = (time) => {
   const mi = String(d.getMinutes()).padStart(2, "0");
   return `${mm}-${dd} ${hh}:${mi}`;
 };
+
+/** 偷菜记录是否未读（0-未读、1-已读） */
+export const isFarmStealRecordUnread = (record) => record?.isRead !== 1;

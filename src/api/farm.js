@@ -25,6 +25,11 @@ export const farmApi = {
     return request.get("/api/steal/my-stolen");
   },
 
+  /** 偷菜记录一键已读 POST /api/steal/my-stolen/read-all */
+  markAllStolenRecordsAsRead() {
+    return request.post("/api/steal/my-stolen/read-all");
+  },
+
   /** 互关好友农场列表 GET /api/farm/friend/list */
   getFriendList() {
     return request.get("/api/farm/friend/list");
