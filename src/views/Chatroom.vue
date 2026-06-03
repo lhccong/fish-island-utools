@@ -71,6 +71,7 @@
       v-if="selectedLuckyBagId"
       :key="selectedLuckyBagId"
       :lucky-bag-id="selectedLuckyBagId"
+      hide-inline
       initial-open
       @detail-close="selectedLuckyBagId = null"
       @joined="fetchActiveLuckyBags"

@@ -1,5 +1,5 @@
 <template>
-  <div class="lucky-bag-inline">
+  <div v-if="!hideInline" class="lucky-bag-inline">
     <div v-if="prefix" class="lucky-bag-prefix">{{ prefix }}</div>
     <div class="lucky-bag-trigger" @click="detailOpen = true">
       <img :src="LUCKY_BAG_IMAGE" alt="福袋" class="lucky-bag-trigger-image" />
@@ -115,6 +115,8 @@ const props = defineProps({
   luckyBagId: { type: String, required: true },
   prefix: { type: String, default: "" },
   initialOpen: { type: Boolean, default: false },
+  /** 从福袋列表打开时仅展示详情弹窗，不渲染聊天区「点击参与福袋」卡片 */
+  hideInline: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["joined", "detail-close"]);
