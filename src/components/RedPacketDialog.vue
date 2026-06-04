@@ -32,11 +32,21 @@
 
         <div class="form-content">
           <div class="form-item">
-            <span class="item-label">祝福语</span>
+            <span class="item-label">{{ form.type === "quiz" ? "题目" : "祝福语" }}</span>
             <el-input
               v-model="form.msg"
-              placeholder="摸鱼者，事竟成！"
+              :placeholder="form.type === 'quiz' ? '请输入题目' : '摸鱼者，事竟成！'"
               maxlength="20"
+              show-word-limit
+            />
+          </div>
+
+          <div v-if="form.type === 'quiz'" class="form-item">
+            <span class="item-label">答案</span>
+            <el-input
+              v-model="form.answer"
+              placeholder="请输入正确答案"
+              maxlength="50"
               show-word-limit
             />
           </div>
@@ -165,6 +175,13 @@ const redPacketTypes = [
     desc: "平分红包，人人有份！",
     defaultMsg: "平分红包，人人有份！",
   },
+  {
+    name: "答题红包",
+    value: "quiz",
+    icon: "el-icon-edit",
+    desc: "答对题目才能抢！",
+    defaultMsg: "",
+  },
   // {
   //   name: "专属红包",
   //   value: "specify",
@@ -217,6 +234,7 @@ const form = reactive({
   count: 10,
   recivers: [],
   gesture: 0,
+  answer: "",
 });
 
 // 监听红包类型变化，自动更新祝福语和个数
@@ -226,6 +244,9 @@ watch(
     const selectedType = redPacketTypes.find((type) => type.value === newType);
     if (selectedType) {
       form.msg = selectedType.defaultMsg;
+      if (newType === "quiz") {
+        form.answer = "";
+      }
       // 如果是心跳红包，设置最小个数为5
       if (newType === "heartbeat") {
         form.count = Math.max(5, form.count);
@@ -250,11 +271,24 @@ const handleClose = () => {
     count: 10,
     recivers: [],
     gesture: 0,
+    answer: "",
   });
 };
 
 const handleSend = async () => {
   if (isSending.value) return;
+
+  if (form.type === "quiz") {
+    if (!form.msg?.trim()) {
+      ElMessage.warning("请输入题目");
+      return;
+    }
+    if (!form.answer?.trim()) {
+      ElMessage.warning("请输入正确答案");
+      return;
+    }
+  }
+
   isSending.value = true;
   try {
     emit("send", { ...form });

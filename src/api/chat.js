@@ -54,12 +54,13 @@ export const chatApi = {
   },
 
   // 抢红包
-  grabRedPacket(redPacketId) {
-    // 根据API文档，这个接口使用params作为查询参数，而不是请求体
+  grabRedPacket(redPacketId, answer) {
+    const params = { redPacketId };
+    if (answer !== undefined && answer !== null && answer !== "") {
+      params.answer = answer;
+    }
     return request.instance.post("/api/redpacket/grab", null, {
-      params: {
-        redPacketId,
-      },
+      params,
     });
   },
 

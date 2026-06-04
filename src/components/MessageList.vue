@@ -156,7 +156,7 @@
                     <div class="red-packet-content">
                       <i class="red-packet-icon">🧧</i>
                       <div class="red-packet-info">
-                        <div class="red-packet-type">红包</div>
+                        <div class="red-packet-type">{{ getRedPacketTypeLabel(item) }}</div>
                         <div class="red-packet-msg">
                           {{ getRedPacketName(item) || "红包" }}
                         </div>
@@ -178,7 +178,7 @@
                     <!-- 抢红包按钮：在卡片内部，只在未领完且用户未抢过时显示 -->
                     <div v-if="!isRedPacketFinished(item) && !isRedPacketGrabbed(item)" class="grab-red-packet-button-inner">
                       <button class="grab-btn-inner" @click.stop="grabRedPacket(item)" :disabled="isGrabbingRedPacket(item)">
-                        {{ isGrabbingRedPacket(item) ? "抢红包中..." : "抢红包" }}
+                        {{ isGrabbingRedPacket(item) ? "抢红包中..." : getRedPacketType(item) === "quiz" ? "答题抢红包" : "抢红包" }}
                       </button>
                     </div>
                     <!-- 查看详情按钮：在卡片内部，显示在底部 -->
@@ -908,16 +908,40 @@ const getMessageTime = (message) => {
 };
 
 // 格式化红包类型
+const mapDetailTypeToString = (type) => {
+  if (type === 1) return "random";
+  if (type === 2) return "average";
+  if (type === 3) return "quiz";
+  return "random";
+};
+
 const formatRedPacketType = (type) => {
   const typeMap = {
     random: "拼手气红包",
     average: "平分红包",
+    quiz: "答题红包",
     // specify: "专属红包",
     // heartbeat: "心跳红包",
     // rockPaperScissors: "猜拳红包",
   };
   return typeMap[type] || type;
 };
+
+const getRedPacketType = (item) => {
+  const detail = redPacketDetails.value.get(item.oId);
+  if (detail?.type !== undefined) {
+    return mapDetailTypeToString(detail.type);
+  }
+
+  const redPacket = parseRedPacketMessage(item.content);
+  if (redPacket.detail?.type !== undefined) {
+    return mapDetailTypeToString(redPacket.detail.type);
+  }
+
+  return redPacket.type || "random";
+};
+
+const getRedPacketTypeLabel = (item) => formatRedPacketType(getRedPacketType(item));
 
 // 抢红包状态管理
 const grabbingRedPackets = ref(new Map()); // 正在抢的红包 oId -> true
@@ -952,7 +976,7 @@ const loadRedPacketDetail = async (item) => {
         money: detail.totalAmount || 0,
         count: detail.count || 0,
         got: (detail.count || 0) - (detail.remainingCount || 0),
-        type: detail.type === 1 ? "random" : detail.type === 2 ? "average" : "random",
+        type: mapDetailTypeToString(detail.type),
         detail: detail, // 保存完整详情
       };
 
@@ -1078,9 +1102,35 @@ const grabRedPacket = async (item) => {
     return;
   }
 
+  const redPacketType = getRedPacketType(item);
+  let userAnswer;
+
+  if (redPacketType === "quiz") {
+    try {
+      const { value } = await ElMessageBox.prompt(
+        getRedPacketName(item),
+        "答题红包",
+        {
+          confirmButtonText: "提交答案",
+          cancelButtonText: "取消",
+          inputPlaceholder: "请输入你的答案",
+          inputValidator: (value) => {
+            if (!value || !value.trim()) {
+              return "答案不能为空";
+            }
+            return true;
+          },
+        }
+      );
+      userAnswer = value.trim();
+    } catch {
+      return;
+    }
+  }
+
   try {
     grabbingRedPackets.value.set(item.oId, true);
-    const response = await chatApi.grabRedPacket(redPacketId);
+    const response = await chatApi.grabRedPacket(redPacketId, userAnswer);
 
     if (response.code === 0 && response.data !== undefined) {
       const grabbedAmount = response.data;

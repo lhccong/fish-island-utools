@@ -1119,22 +1119,28 @@ function openLuckyBagFromList(bagId) {
 // 处理发送红包
 const handleSendRedPacket = async (redPacketData) => {
   try {
-    const { msg, money, count, type, gesture, recivers } = redPacketData;
+    const { msg, money, count, type, gesture, recivers, answer } = redPacketData;
     
-    // 将红包类型从字符串转换为数字：random -> 1, average -> 2
+    // 将红包类型从字符串转换为数字：random -> 1, average -> 2, quiz -> 3
     const typeMap = {
       random: 1,
       average: 2,
+      quiz: 3,
     };
     const packetType = typeMap[type] || 1;
     
-    // 调用创建红包API
-    const createResponse = await chatApi.createRedPacket({
+    const createBody = {
       count,
       name: msg || undefined,
       totalAmount: money,
       type: packetType,
-    });
+    };
+    if (packetType === 3 && answer?.trim()) {
+      createBody.answer = answer.trim();
+    }
+
+    // 调用创建红包API
+    const createResponse = await chatApi.createRedPacket(createBody);
     
     if (createResponse.code !== 0 || !createResponse.data) {
       ElMessage.error(createResponse.message || "创建红包失败");
