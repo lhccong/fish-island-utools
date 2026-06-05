@@ -10,19 +10,27 @@ export const chatApi = {
   getChatMessages(params = {}) {
     const {
       current = 1,
+      messageId,
       pageSize = 20,
       roomId = -1,
       sortField = "id",
       sortOrder = "desc",
     } = params;
 
-    return request.post("/api/chat/message/page/vo", {
-      current,
+    const body = {
       pageSize,
       roomId,
       sortField,
       sortOrder,
-    });
+    };
+
+    if (messageId != null) {
+      body.messageId = messageId;
+    } else {
+      body.current = current;
+    }
+
+    return request.post("/api/chat/message/page/vo", body);
   },
 
   // 获取默认表情

@@ -104,7 +104,6 @@ const chatroomStore = useChatroomStore();
 
 // 聊天室状态
 const messages = ref([]);
-const currentPage = ref(1);
 const isLoadingMore = ref(false);
 const hasMoreMessages = ref(true);
 // 跟踪连续多少页被黑名单过滤后没有有效消息
@@ -767,18 +766,35 @@ const handleMessage = (data) => {
   }
 };
 
+const getMessageCursorId = (msg) => {
+  if (!msg) return null;
+  const id =
+    msg.rawMessage?.messageWrapper?.message?.id ?? msg.oId ?? msg.id;
+  const numericId = Number(id);
+  return Number.isFinite(numericId) ? numericId : null;
+};
+
 // 加载历史消息
-const loadMessages = async (page = 1) => {
-  if (isLoadingMore.value || (!hasMoreMessages.value && page !== 1)) return;
+const loadMessages = async (options = {}) => {
+  const { messageId } = options;
+  const isInitialLoad = messageId == null;
+
+  if (isLoadingMore.value || (!hasMoreMessages.value && !isInitialLoad)) return;
   isLoadingMore.value = true;
   try {
-    const response = await chatApi.getChatMessages({
-      current: page,
+    const requestParams = {
       pageSize: DEFAULT_MESSAGE_PAGE_SIZE,
       roomId: -1,
       sortField: "id",
       sortOrder: "desc",
-    });
+    };
+    if (messageId != null) {
+      requestParams.messageId = messageId;
+    } else {
+      requestParams.current = 1;
+    }
+
+    const response = await chatApi.getChatMessages(requestParams);
     const pageData = response?.data || {};
     const records = Array.isArray(pageData.records)
       ? pageData.records
@@ -808,7 +824,7 @@ const loadMessages = async (page = 1) => {
           }
         });
 
-      if (page === 1) {
+      if (isInitialLoad) {
         messages.value = reversedMessages;
         // 重置连续空页计数
         resetConsecutiveEmptyPages();
@@ -839,7 +855,6 @@ const loadMessages = async (page = 1) => {
       // 注意：判断是否还有更多消息应该基于服务器返回的原始数据（records.length），
       // 而不是过滤后的数据（filteredMessages.length），因为黑名单过滤可能导致
       // 当前页过滤后没有消息，但服务器端可能还有更多消息
-      const totalPages = pageData?.pages;
       const pageSizeFromResponse =
         pageData?.size ?? DEFAULT_MESSAGE_PAGE_SIZE;
       
@@ -851,17 +866,7 @@ const loadMessages = async (page = 1) => {
         consecutiveEmptyPages.value = 0;
       }
       
-      if (
-        typeof totalPages === "number" &&
-        totalPages > 0
-      ) {
-        // 如果有总页数信息，优先使用总页数判断
-        hasMoreMessages.value = page < totalPages;
-        // 但如果连续太多页都没有有效消息，也停止加载
-        if (consecutiveEmptyPages.value >= MAX_CONSECUTIVE_EMPTY_PAGES) {
-          hasMoreMessages.value = false;
-        }
-      } else if (records.length < pageSizeFromResponse) {
+      if (records.length < pageSizeFromResponse) {
         // 使用原始 records.length 而不是 filteredMessages.length
         hasMoreMessages.value = false;
       } else {
@@ -882,10 +887,11 @@ const loadMessages = async (page = 1) => {
   }
 };
 
-// 处理加载更多消息
+// 处理加载更多消息（上滑时使用最早消息的 messageId 作为游标）
 const handleLoadMore = () => {
-  currentPage.value++;
-  loadMessages(currentPage.value);
+  const messageId = getMessageCursorId(messages.value[0]);
+  if (messageId == null) return;
+  loadMessages({ messageId });
 };
 
 // 重置连续空页计数（在重新加载第一页时调用）
@@ -1297,7 +1303,6 @@ const handleAccountSwitch = async () => {
   wsManager.close("chat-room");
   // 清空消息列表
   messages.value = [];
-  currentPage.value = 1;
   hasMoreMessages.value = true;
   // 重置连续空页计数
   resetConsecutiveEmptyPages();
@@ -1339,10 +1344,8 @@ const handleBlacklistUpdated = (event) => {
   } else if (action === "remove") {
     // 移除黑名单：需要重新加载消息，因为可能有该用户的历史消息需要显示
     // 重新加载当前页的消息
-    const currentMessages = messages.value;
-    currentPage.value = 1;
     hasMoreMessages.value = true;
-    loadMessages(1);
+    loadMessages();
   }
 };
 
@@ -1353,13 +1356,11 @@ const handleVisibilityChange = () => {
     console.log("页面从后台恢复前台，重新加载聊天室数据");
     // 清空消息列表
     messages.value = [];
-    // 重置分页
-    currentPage.value = 1;
     hasMoreMessages.value = true;
     // 重置连续空页计数
     resetConsecutiveEmptyPages();
     // 重新加载消息
-    loadMessages(1);
+    loadMessages();
   }
 };
 
